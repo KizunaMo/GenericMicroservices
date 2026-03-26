@@ -180,7 +180,96 @@ dotnet add package MassTransit.RabbitMQ
 
 ---
 
-## 七、我們的實作架構
+## 七、Domain Event（領域事件）
+
+### 這就是 Domain Event
+
+`ItemCreated` 是一個 **Domain Event**，來自 DDD（Domain-Driven Design）的概念：
+
+> **Domain Event = 「某件事情在系統中發生了」的事實記錄**
+
+```
+ItemCreated    = Item 被建立了
+OrderPlaced    = 訂單被下了
+UserRegistered = 使用者註冊了
+PaymentFailed  = 付款失敗了
+```
+
+### Domain Event 的特性
+
+| 特性 | 說明 | 我們的實作 |
+|---|---|---|
+| 過去式命名 | 已發生的事實 | `ItemCreated`（不是 `CreateItem`）|
+| 不可變 | 事實不能被修改 | `record` + `init` |
+| 只帶資料 | 不帶行為 | 純資料結構，無方法 |
+| 發布後不管 | 發布者不等待結果 | `await publishEndpoint.Publish(...)` |
+
+### 和 Command 的差異
+
+```
+Command（命令）= 請求做某件事，可能被拒絕
+  CreateItemCommand → 「請建立 Item」（可能失敗）
+
+Event（事件）= 某件事已經發生，不可撤銷
+  ItemCreated → 「Item 已建立」（事實）
+```
+
+---
+
+## 八、Demo.Contracts 的架構意義
+
+### 為什麼要獨立一個 Contracts 專案？
+
+**單一事實來源（Single Source of Truth）**：
+
+```
+❌ 各自定義（容易不一致）
+DataService/Events/ItemCreated.cs   ← 一份
+Demo.Worker/Events/ItemCreated.cs   ← 另一份
+→ 加欄位時漏改一個 → 兩邊型別不一致 → 執行期錯誤
+
+✅ 共用 Demo.Contracts（永遠一致）
+Demo.Contracts/ItemCreated.cs       ← 唯一一份
+→ 改這裡 → 兩個專案編譯時都會發現問題
+```
+
+### 同 Solution vs 不同 Repository
+
+| 情況 | Reference 方式 | 適用時機 |
+|---|---|---|
+| 同一個 Solution | `<ProjectReference>` | 開發階段、學習 |
+| 不同 Repo，公司內部 | 私有 NuGet Package | 正式微服務 |
+| 開源 | 公開 NuGet Package | 開源套件 |
+
+### 未來正式化的流程
+
+```bash
+# 1. 打包 Demo.Contracts
+dotnet pack Demo.Contracts --output ./nupkgs
+
+# 2. 上傳到私有 NuGet Server（公司內部）
+dotnet nuget push ./nupkgs/Demo.Contracts.1.0.0.nupkg \
+  --source https://nuget.mycompany.com
+
+# 3. 其他服務安裝（不需要在同一個 Repo）
+dotnet add package Demo.Contracts
+```
+
+### 對應你的 AMO_Dev
+
+```
+Unity（AMO_Dev）                  .NET（Demo.Contracts）
+com.kizunamo.amo_dev         →    Demo.Contracts
+Unity Package（UPM）          →    NuGet Package
+package.json + Git URL       →    .nupkg + NuGet Server
+其他專案 import               →    dotnet add package
+```
+
+概念完全相同，工具不同而已。
+
+---
+
+## 九、我們的實作架構
 
 ```
 POST /api/items

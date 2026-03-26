@@ -7,6 +7,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Demo.Gateway", "Demo.Gatewa
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Demo.RealTime", "Demo.RealTime\Demo.RealTime.csproj", "{7C06A065-0C05-4F86-A2F2-3A5BE245624A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Demo.Contracts", "Demo.Contracts\Demo.Contracts.csproj", "{F9615A66-C63F-4111-AB66-ECDDB0F9E9C1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Demo.Worker", "Demo.Worker\Demo.Worker.csproj", "{BF6BD51D-35F9-4FF4-8BE9-D45DBFB776C6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -25,5 +29,13 @@ Global
 		{7C06A065-0C05-4F86-A2F2-3A5BE245624A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7C06A065-0C05-4F86-A2F2-3A5BE245624A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7C06A065-0C05-4F86-A2F2-3A5BE245624A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F9615A66-C63F-4111-AB66-ECDDB0F9E9C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F9615A66-C63F-4111-AB66-ECDDB0F9E9C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F9615A66-C63F-4111-AB66-ECDDB0F9E9C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F9615A66-C63F-4111-AB66-ECDDB0F9E9C1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BF6BD51D-35F9-4FF4-8BE9-D45DBFB776C6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BF6BD51D-35F9-4FF4-8BE9-D45DBFB776C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BF6BD51D-35F9-4FF4-8BE9-D45DBFB776C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BF6BD51D-35F9-4FF4-8BE9-D45DBFB776C6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
