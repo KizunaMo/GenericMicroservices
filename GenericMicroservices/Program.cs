@@ -1,13 +1,16 @@
 using Microsoft.EntityFrameworkCore;
+using GenericMicroservices.Core.Repositories;
 using GenericMicroservices.Data;
-using GenericMicroservices.Models;
+using GenericMicroservices.Features.Items;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Register PostgreSQL via EF Core
-// AppDbContext is injected anywhere it's needed via DI
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Register Repository — DI 會自動把 AppDbContext 注入進去
+builder.Services.AddScoped<IRepository<Item>, ItemRepository>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -25,28 +28,28 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 // GET all items
-app.MapGet("/api/items", async (AppDbContext db) =>
-    await db.Items.ToListAsync());
+app.MapGet("/api/items", async (IRepository<Item> repo) =>
+    await repo.GetAllAsync());
 
 // GET single item
-app.MapGet("/api/items/{id}", async (int id, AppDbContext db) =>
-    await db.Items.FindAsync(id) is Item item ? Results.Ok(item) : Results.NotFound());
+app.MapGet("/api/items/{id}", async (int id, IRepository<Item> repo) =>
+    await repo.GetByIdAsync(id) is Item item ? Results.Ok(item) : Results.NotFound());
 
 // POST create item
-app.MapPost("/api/items", async (Item item, AppDbContext db) =>
+app.MapPost("/api/items", async (Item item, IRepository<Item> repo) =>
 {
-    db.Items.Add(item);
-    await db.SaveChangesAsync();
+    await repo.AddAsync(item);
+    await repo.SaveAsync();
     return Results.Created($"/api/items/{item.Id}", item);
 });
 
 // DELETE item
-app.MapDelete("/api/items/{id}", async (int id, AppDbContext db) =>
+app.MapDelete("/api/items/{id}", async (int id, IRepository<Item> repo) =>
 {
-    var item = await db.Items.FindAsync(id);
+    var item = await repo.GetByIdAsync(id);
     if (item is null) return Results.NotFound();
-    db.Items.Remove(item);
-    await db.SaveChangesAsync();
+    await repo.DeleteAsync(item);
+    await repo.SaveAsync();
     return Results.NoContent();
 });
 

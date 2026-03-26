@@ -1,6 +1,5 @@
-namespace GenericMicroservices.Models;
+namespace GenericMicroservices.Features.Items;
 
-// Represents a single item record in the database.
 public class Item
 {
     public int Id { get; set; }

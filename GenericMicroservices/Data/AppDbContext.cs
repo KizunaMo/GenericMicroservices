@@ -1,5 +1,5 @@
+using GenericMicroservices.Features.Items;
 using Microsoft.EntityFrameworkCore;
-using GenericMicroservices.Models;
 
 namespace GenericMicroservices.Data;
 
