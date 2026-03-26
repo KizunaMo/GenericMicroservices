@@ -1,0 +1,14 @@
+# .NET build output
+bin/
+obj/
+
+# Rider IDE
+.idea/
+*.user
+
+# macOS
+.DS_Store
+
+# Environment / secrets
+*.env
+appsettings.Production.json
