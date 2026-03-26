@@ -3,10 +3,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
-// CORS 統一在 Gateway 處理，後端服務不需要各自設定
+const string corsPolicy = "GatewayPolicy";
+
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy =>
+    options.AddPolicy(corsPolicy, policy =>
     {
         policy.WithOrigins(
                 "http://localhost:5200",  // 開發時 HTML 測試頁
@@ -14,14 +15,16 @@ builder.Services.AddCors(options =>
               )
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials();        // SignalR WebSocket 必須
+              .AllowCredentials();
     });
 });
 
 var app = builder.Build();
 
-// UseCors 必須在 MapReverseProxy 之前
-app.UseCors();
-app.MapReverseProxy();
+app.UseCors(corsPolicy);
+
+// RequireCors 讓 YARP 的 endpoint 也套用 CORS
+// 才能正確回應瀏覽器的 OPTIONS preflight 請求
+app.MapReverseProxy().RequireCors(corsPolicy);
 
 app.Run();
