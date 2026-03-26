@@ -58,7 +58,34 @@ A：每個 HTTP request 建立一個新的 Repository instance，request 結束�
 
 ---
 
-### 1-C：錯誤處理與統一回應格式（待進行）
+### 1-C：錯誤處理與統一回應格式（已完成）
+
+**學習目標**
+- 讓所有 API 回傳統一的 JSON 格式 ✅
+- 建立全域錯誤攔截 ✅
+
+**新增檔案**
+```
+Core/Common/
+├── ApiResponse.cs                  ← 統一回應容器
+└── Middleware/
+    └── ExceptionMiddleware.cs      ← 全域例外攔截
+```
+
+**ApiResponse 格式**
+```json
+// 成功
+{ "success": true, "data": {...}, "error": null }
+// 失敗
+{ "success": false, "data": null, "error": "Item with id 99 not found" }
+```
+
+**關鍵概念**
+- `init` 屬性：只能在建立時設定，之後不可修改，比 `set` 更安全
+- Middleware 洋蔥模型：Request 進入 → 穿越各層 → Response 返回，例外在最外層攔截
+- `app.UseMiddleware<ExceptionMiddleware>()` 必須放最外層才能攔截所有例外
+
+**git commit**：`c608781` feat: add unified API response format and exception middleware
 
 ---
 
