@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# 
+#
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GenericMicroservices", "GenericMicroservices\GenericMicroservices.csproj", "{F0D9FA44-AD90-441C-9BFA-002FD9648BD1}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Demo.Gateway", "Demo.Gateway\Demo.Gateway.csproj", "{785693D6-9557-46AE-8328-91A7F68D1A0B}"
