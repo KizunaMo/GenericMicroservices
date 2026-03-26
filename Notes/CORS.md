@@ -187,9 +187,11 @@ OrderService（不需要 CORS）
 ### Demo.Gateway/Program.cs
 
 ```csharp
+const string corsPolicy = "GatewayPolicy";
+
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy =>
+    options.AddPolicy(corsPolicy, policy =>
     {
         policy.WithOrigins(
                 "http://localhost:5200",   // 開發時 HTML 頁面的位址
@@ -201,8 +203,20 @@ builder.Services.AddCors(options =>
     });
 });
 
-app.UseCors();          // 套用 CORS（在 MapReverseProxy 之前）
-app.MapReverseProxy();
+app.UseCors(corsPolicy);
+
+// ⚠️ 關鍵：YARP 必須用 RequireCors，單純 UseCors() 不夠
+// 原因：YARP 的 MapReverseProxy() 建立的是 endpoint，
+//       CORS Middleware 不會自動攔截 endpoint 的 OPTIONS preflight
+//       RequireCors 明確告訴 endpoint：你也要處理 CORS
+app.MapReverseProxy().RequireCors(corsPolicy);
+```
+
+### ❌ 錯誤做法（常見陷阱）
+
+```csharp
+app.UseCors(corsPolicy);
+app.MapReverseProxy();  // 沒有 RequireCors → OPTIONS 回 405 → 瀏覽器封鎖
 ```
 
 ### Demo.RealTime/Program.cs
@@ -210,6 +224,24 @@ app.MapReverseProxy();
 ```csharp
 // 後端服務不需要設 CORS，因為瀏覽器只會連 Gateway
 // Gateway 統一處理
+```
+
+### 驗證 CORS 是否正確
+
+用 curl 模擬瀏覽器的 preflight 請求：
+
+```bash
+curl -v -X OPTIONS http://localhost:5000/hub/chat \
+  -H "Origin: http://localhost:5200" \
+  -H "Access-Control-Request-Method: POST"
+
+# 正確回應：
+# HTTP/1.1 204 No Content
+# Access-Control-Allow-Origin: http://localhost:5200
+# Access-Control-Allow-Credentials: true
+
+# 錯誤回應（CORS 沒設好）：
+# HTTP/1.1 405 Method Not Allowed  ← OPTIONS 被擋掉
 ```
 
 ---
