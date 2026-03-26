@@ -5,6 +5,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GenericMicroservices", "Gen
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Demo.Gateway", "Demo.Gateway\Demo.Gateway.csproj", "{785693D6-9557-46AE-8328-91A7F68D1A0B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Demo.RealTime", "Demo.RealTime\Demo.RealTime.csproj", "{7C06A065-0C05-4F86-A2F2-3A5BE245624A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -19,5 +21,9 @@ Global
 		{785693D6-9557-46AE-8328-91A7F68D1A0B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{785693D6-9557-46AE-8328-91A7F68D1A0B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{785693D6-9557-46AE-8328-91A7F68D1A0B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7C06A065-0C05-4F86-A2F2-3A5BE245624A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7C06A065-0C05-4F86-A2F2-3A5BE245624A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7C06A065-0C05-4F86-A2F2-3A5BE245624A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7C06A065-0C05-4F86-A2F2-3A5BE245624A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
