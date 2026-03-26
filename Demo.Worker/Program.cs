@@ -1,7 +1,25 @@
-using Demo.Worker;
+using Demo.Worker.Consumers;
+using MassTransit;
 
 var builder = Host.CreateApplicationBuilder(args);
-builder.Services.AddHostedService<Worker>();
+
+builder.Services.AddMassTransit(x =>
+{
+    // 註冊 Consumer
+    x.AddConsumer<ItemCreatedConsumer>();
+
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        cfg.Host("localhost", "/", h =>
+        {
+            h.Username("guest");
+            h.Password("guest");
+        });
+
+        // 自動為所有已註冊的 Consumer 設定 Queue
+        cfg.ConfigureEndpoints(context);
+    });
+});
 
 var host = builder.Build();
 host.Run();
