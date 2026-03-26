@@ -13,8 +13,6 @@
 - REST API 動詞：GET（讀）、POST（新增）、PUT/PATCH（更新）、DELETE（刪除）
 - `db.Database.EnsureCreated()`：啟動時自動建立資料表
 
-**git commit**：`a1f22f2` Initial commit
-
 ---
 
 ### 1-B：Repository Pattern（已完成）
@@ -54,8 +52,6 @@ A：EF Core 的泛型方法，T = Item 時等同於 `_db.Items`，T = Order 時�
 Q：`AddScoped` 是什麼？
 A：每個 HTTP request 建立一個新的 Repository instance，request 結束自動銷毀。
 
-**git commit**：`8b9b367` Refactor: implement modular Repository Pattern architecture
-
 ---
 
 ### 1-C：錯誤處理與統一回應格式（已完成）
@@ -85,7 +81,6 @@ Core/Common/
 - Middleware 洋蔥模型：Request 進入 → 穿越各層 → Response 返回，例外在最外層攔截
 - `app.UseMiddleware<ExceptionMiddleware>()` 必須放最外層才能攔截所有例外
 
-**git commit**：`c608781` feat: add unified API response format and exception middleware
 
 ---
 

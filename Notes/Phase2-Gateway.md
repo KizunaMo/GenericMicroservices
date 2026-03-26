@@ -166,6 +166,3 @@ appsettings.json 裡的位址也會從 localhost 換成 Docker 服務名稱：
 **核心原則**：程式碼裡不寫死 port，由環境決定。同一份程式碼在開發、測試、正式環境都能跑，只改設定不改程式碼。
 
 ---
-
-## git commit
-`b097097` feat: add Demo.Gateway with YARP reverse proxy
