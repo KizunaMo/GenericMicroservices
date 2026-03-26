@@ -6,7 +6,9 @@ builder.Services.AddSignalR();
 
 var app = builder.Build();
 
-// /hub/chat 是這個 Hub 的連線端點
+app.UseStaticFiles();
+
+// CORS 由 Gateway 統一處理，這裡不需要設定
 app.MapHub<ChatHub>("/hub/chat");
 
 app.Run();
