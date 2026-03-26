@@ -171,12 +171,16 @@ RabbitMQ（基礎設施）← 類比：WebSocket Server
 ### 安裝（在需要的專案執行）
 
 ```bash
-# Producer（DataService）
-dotnet add package MassTransit.RabbitMQ
-
-# Consumer（Demo.Worker）
-dotnet add package MassTransit.RabbitMQ
+# ⚠️ 重要：MassTransit v9+ 需要付費授權，使用 v8.x（免費）
+dotnet add package MassTransit.RabbitMQ --version 8.3.6
 ```
+
+### 版本選擇
+
+| 版本 | 授權 | 說明 |
+|---|---|---|
+| v8.x（8.3.6）| 免費開源 | 學習與商業使用均可 |
+| v9.x+ | 付費 | 需要 License Key |
 
 ---
 
