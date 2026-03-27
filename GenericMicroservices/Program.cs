@@ -1,13 +1,21 @@
 using Demo.Contracts;
 using MassTransit;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using GenericMicroservices.Core.Common;
 using GenericMicroservices.Core.Common.Middleware;
 using GenericMicroservices.Core.Repositories;
 using GenericMicroservices.Data;
 using GenericMicroservices.Features.Items;
+using GenericMicroservices.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenLocalhost(5128, o => o.Protocols = HttpProtocols.Http1);   // REST
+    options.ListenLocalhost(5129, o => o.Protocols = HttpProtocols.Http2);   // gRPC
+});
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -27,6 +35,7 @@ builder.Services.AddMassTransit(x =>
     });
 });
 
+builder.Services.AddGrpc();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -87,5 +96,7 @@ app.MapDelete("/api/items/{id}", async (int id, IRepository<Item> repo) =>
     await repo.SaveAsync();
     return Results.NoContent();
 });
+
+app.MapGrpcService<DataItemGrpcService>();
 
 app.Run();

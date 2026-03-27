@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+option csharp_namespace = "Demo.GrpcService";
+
+package items;
+
+service ItemService {
+  rpc GetItem (GetItemRequest) returns (ItemResponse);
+  rpc GetAllItems (GetAllItemsRequest) returns (ItemListResponse);
+}
+
+message GetItemRequest {
+  int32 id = 1;
+}
+
+message GetAllItemsRequest {
+}
+
+message ItemResponse {
+  int32 id = 1;
+  string name = 2;
+  string description = 3;
+}
+
+message ItemListResponse {
+  repeated ItemResponse items = 1;
+}

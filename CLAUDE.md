@@ -21,10 +21,10 @@
 
 ### Phase 3：即時通訊
 - [x] 3-A：Demo.RealTime（SignalR / WebSocket）
-- [ ] 3-B：RabbitMQ（Message Broker，服務間非同步通訊）
+- [x] 3-B：RabbitMQ（Message Broker，服務間非同步通訊）
 
 ### Phase 4：其他通訊協議
-- [ ] 4-A：gRPC（高效能服務間通訊）
+- [x] 4-A：gRPC（高效能服務間通訊）
 - [ ] 4-B：TCP Socket Raw（自訂協議，對接硬體設備）
 
 ### Phase 5：安全性（正式上線前必備）
@@ -75,11 +75,13 @@
 - 資料表：Items（Id, Name, Description）
 
 ## 服務 Port 對照
-| 服務 | Port | 說明 |
-|---|---|---|
-| Demo.Gateway | 5000 | 唯一對外入口 |
-| GenericMicroservices（DataService）| 5128 | REST API |
-| Demo.RealTime | 5200 | SignalR Hub |
+| 服務 | Port | 協議 | 說明 |
+|---|---|---|---|
+| Demo.Gateway | 5000 | HTTP/1.1 | 唯一對外入口 |
+| GenericMicroservices（DataService）| 5128 | HTTP/1.1 | REST API + Swagger |
+| GenericMicroservices（DataService）| 5129 | HTTP/2 | gRPC（供內部服務呼叫）|
+| Demo.RealTime | 5200 | WebSocket | SignalR Hub |
+| Demo.GrpcService | 5300 | HTTP/2 | gRPC |
 
 ## 教學規則（必須遵守）
 1. 每次只執行一個步驟

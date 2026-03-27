@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+option csharp_namespace = "GenericMicroservices";
+
+package dataservice;
+
+service DataItemService {
+  rpc GetItem     (GetDataItemRequest)     returns (DataItemResponse);
+  rpc GetAllItems (GetAllDataItemsRequest) returns (DataItemListResponse);
+}
+
+message GetDataItemRequest {
+  int32 id = 1;
+}
+
+message GetAllDataItemsRequest {
+}
+
+message DataItemResponse {
+  int32  id          = 1;
+  string name        = 2;
+  string description = 3;
+}
+
+message DataItemListResponse {
+  repeated DataItemResponse items = 1;
+}
