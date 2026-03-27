@@ -9,6 +9,10 @@ obj/
 # macOS
 .DS_Store
 
+# Postman local sync files
+.postman/
+postman/
+
 # Environment / secrets
 *.env
 appsettings.Production.json
