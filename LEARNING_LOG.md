@@ -153,5 +153,20 @@
 - 正式環境用環境變數控制 Port，不寫死在程式碼
 - 服務啟動時 console 會印出正在監聽的所有 Port
 
+### Phase 5-C 完成（Secrets 管理）
+- Demo.AuthService 和 Demo.Gateway 各自執行 `dotnet user-secrets init`
+- 敏感值（SecretKey、ConnectionStrings）移入 User Secrets（`~/.microsoft/usersecrets/`）
+- appsettings.json 的敏感值清空，非敏感值保留
+- 測試：重啟服務後登入正常，Configuration 系統自動從 User Secrets 讀值
+
+#### 學到的概念（Phase 5-C）
+- User Secrets 儲存在專案目錄之外（`~/.microsoft/usersecrets/<guid>/secrets.json`），git 追蹤不到
+- `<UserSecretsId>` 存在 `.csproj`，是 Secrets 儲存位置的識別碼
+- Configuration 優先順序：環境變數 > User Secrets > appsettings.json（後者被前者覆蓋）
+- `dotnet user-secrets` 必須在有 `.csproj` 的目錄執行，或用 `--project` 指定
+- 敏感值：SecretKey、ConnectionStrings（含帳密）→ 清空；非敏感值：Issuer、Logging → 保留
+- Gateway 和 AuthService 的 SecretKey 必須相同，但 User Secrets 是各專案獨立的，需分別 set
+- 正式環境改用環境變數注入（Docker Compose Phase 6 實作）
+
 ### 下一步
-- Phase 5-C：Secrets 管理
+- Phase 5-D：Rate Limiting

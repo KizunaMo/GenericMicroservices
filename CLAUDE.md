@@ -64,10 +64,10 @@
   - 開發環境憑證設定（dotnet dev-certs https --trust）
   - Gateway 同時監聽 HTTP :5000 和 HTTPS :5001
   - 正式環境憑證（Let's Encrypt，Phase 6 部署時處理）
-- [ ] 5-C：Secrets 管理
+- [x] 5-C：Secrets 管理
   - 環境變數取代 appsettings.json 中的敏感資訊
   - .NET User Secrets（開發）
-  - 正式環境 Secrets 注入方式
+  - 正式環境 Secrets 注入方式（Phase 6 Docker Compose 實作）
 - [ ] 5-D：Rate Limiting
   - 限制每個 IP 的請求頻率
   - 防止暴力攻擊與 DDoS
