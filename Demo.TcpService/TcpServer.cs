@@ -10,12 +10,14 @@ public class TcpServer
 {
     private readonly TcpListener _listener;
 
-    // 根據 (Category, SubType) 找對應的 Handler
+    private static readonly TimeSpan HeartbeatTimeout  = TimeSpan.FromSeconds(90);
+    private static readonly TimeSpan WatchdogInterval  = TimeSpan.FromSeconds(10);
+
     private readonly Dictionary<(MessageCategory, int), IMessageHandler> _handlers = new()
     {
-        { (MessageCategory.Item,   (int)ItemSubType.Query),        new ItemQueryHandler()      },
-        { (MessageCategory.Item,   (int)ItemSubType.Create),       new ItemCreateHandler()     },
-        { (MessageCategory.System, (int)SystemSubType.Heartbeat),  new SystemHeartbeatHandler()},
+        { (MessageCategory.Item,   (int)ItemSubType.Query),        new ItemQueryHandler()       },
+        { (MessageCategory.Item,   (int)ItemSubType.Create),       new ItemCreateHandler()      },
+        { (MessageCategory.System, (int)SystemSubType.Heartbeat),  new SystemHeartbeatHandler() },
     };
 
     public TcpServer(int port)
@@ -36,8 +38,34 @@ public class TcpServer
         }
     }
 
-    private async Task HandleClientAsync(TcpClient client, CancellationToken ct)
+    private async Task HandleClientAsync(TcpClient client, CancellationToken serverCt)
     {
+        // 每個 Client 有自己的 CancellationTokenSource
+        // LinkedTokenSource：Server 停止 或 Client 超時，都會觸發取消
+        using var clientCts = CancellationTokenSource.CreateLinkedTokenSource(serverCt);
+        var ct = clientCts.Token;
+
+        var lastActivity = DateTime.UtcNow;
+
+        // Watchdog Task：定期檢查 Client 是否超時
+        _ = Task.Run(async () =>
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(WatchdogInterval, ct);
+
+                    if (DateTime.UtcNow - lastActivity > HeartbeatTimeout)
+                    {
+                        Console.WriteLine($"[Server] Client timeout ({HeartbeatTimeout.TotalSeconds}s no activity): {client.Client.RemoteEndPoint}");
+                        clientCts.Cancel();
+                    }
+                }
+                catch (OperationCanceledException) { break; }
+            }
+        }, ct);
+
         await using var stream = client.GetStream();
 
         try
@@ -65,6 +93,9 @@ public class TcpServer
                     await ReadExactAsync(stream, dataBuffer, ct);
                 var data = Encoding.UTF8.GetString(dataBuffer);
 
+                // 收到任何封包都更新活躍時間（包含 Heartbeat）
+                lastActivity = DateTime.UtcNow;
+
                 Console.WriteLine($"[Server] Received → Category: {category}, SubType: {subType}, Data: \"{data}\"");
 
                 // 5. 分派到對應 Handler
@@ -82,7 +113,7 @@ public class TcpServer
         }
         catch (Exception ex) when (ex is IOException or OperationCanceledException)
         {
-            // Client 斷線或服務停止，正常情況
+            // Client 斷線、超時或服務停止，正常情況
         }
         finally
         {
@@ -105,7 +136,7 @@ public class TcpServer
 
     private static async Task SendMessageAsync(NetworkStream stream, string message, CancellationToken ct)
     {
-        var data = Encoding.UTF8.GetBytes(message);
+        var data        = Encoding.UTF8.GetBytes(message);
         var lengthBytes = BitConverter.GetBytes(data.Length);
         await stream.WriteAsync(lengthBytes, ct);
         await stream.WriteAsync(data, ct);

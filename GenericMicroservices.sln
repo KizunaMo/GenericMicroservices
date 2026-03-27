@@ -15,6 +15,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Demo.GrpcService", "Demo.Gr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Demo.GrpcTestConsole", "Demo.GrpcTestConsole\Demo.GrpcTestConsole.csproj", "{77294E81-C059-459B-9145-4DFAD888E3F1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Demo.TcpService", "Demo.TcpService\Demo.TcpService.csproj", "{0242D0C7-737A-43E2-BD37-4E5289C22E80}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Demo.TcpTestConsole", "Demo.TcpTestConsole\Demo.TcpTestConsole.csproj", "{E400EF35-F245-4703-AC44-0956287A05F3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -49,5 +53,13 @@ Global
 		{77294E81-C059-459B-9145-4DFAD888E3F1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{77294E81-C059-459B-9145-4DFAD888E3F1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{77294E81-C059-459B-9145-4DFAD888E3F1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0242D0C7-737A-43E2-BD37-4E5289C22E80}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0242D0C7-737A-43E2-BD37-4E5289C22E80}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0242D0C7-737A-43E2-BD37-4E5289C22E80}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0242D0C7-737A-43E2-BD37-4E5289C22E80}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E400EF35-F245-4703-AC44-0956287A05F3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E400EF35-F245-4703-AC44-0956287A05F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E400EF35-F245-4703-AC44-0956287A05F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E400EF35-F245-4703-AC44-0956287A05F3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -265,6 +265,122 @@ private static async Task<int> ReadExactAsync(NetworkStream stream, byte[] buffe
 
 ---
 
+## 心跳包（Heartbeat）與超時偵測
+
+### 為什麼需要心跳包？
+
+TCP 長連線在沒有資料傳輸時，**不會自動偵測對方是否斷線**：
+
+```
+Client 因網路問題斷線
+        │
+        │  Server 完全不知道
+        │  繼續「以為」連線還活著
+        │  資源一直被佔用，無法釋放
+        ↓
+記憶體洩漏 / 連線數耗盡
+```
+
+心跳包（Heartbeat）是解法：**定期互送封包，確認連線還活著**。
+
+```
+Client ──── Category=System, SubType=Heartbeat ────→ Server
+Client ←──── [System.Heartbeat] Pong ─────────────── Server
+
+若 Server 超過 90 秒沒收到任何封包
+    → 主動關閉連線，釋放資源
+```
+
+### 實作：Watchdog Task
+
+每個 Client 連線各自有一個 Watchdog Task，不影響其他連線：
+
+```csharp
+// 每個 Client 有自己的 CancellationTokenSource
+// Server 停止 或 Client 超時，都會觸發取消
+using var clientCts = CancellationTokenSource.CreateLinkedTokenSource(serverCt);
+var lastActivity = DateTime.UtcNow;
+
+// Watchdog：每 10 秒檢查一次，超過 90 秒無活動則斷線
+_ = Task.Run(async () =>
+{
+    while (!ct.IsCancellationRequested)
+    {
+        await Task.Delay(WatchdogInterval, ct);  // 每 10 秒醒來一次
+
+        if (DateTime.UtcNow - lastActivity > HeartbeatTimeout)  // 超過 90 秒？
+        {
+            Console.WriteLine("Client timeout, closing connection.");
+            clientCts.Cancel();  // 觸發斷線
+        }
+    }
+});
+
+// 每次收到任何封包都重置計時
+lastActivity = DateTime.UtcNow;
+```
+
+### 超時參數設計原則
+
+```
+HeartbeatTimeout  = 90 秒   ← Server 等待的最長時間
+WatchdogInterval  = 10 秒   ← 檢查頻率
+Client 送心跳頻率 = 30 秒   ← Client 每 30 秒送一次，確保在 90 秒內至少送 2 次
+```
+
+> 任何封包（不只是 Heartbeat）都算活躍，重置計時。
+> Heartbeat 只是確保「沒有業務資料時」連線不會被誤判超時。
+
+---
+
+## TCP 為什麼不經過 Gateway？
+
+```
+外部 Client（瀏覽器）
+        │ HTTP
+        ↓
+    Gateway（5000）    ← YARP 只能代理 HTTP 流量
+        │
+        ↓
+    DataService、RealTime...
+
+Demo.TcpService（5400）← 完全不是 HTTP，Gateway 無法代理
+```
+
+**YARP 只能處理 HTTP 流量**，TCP Socket Raw 完全繞過 Gateway。
+
+這不是設計缺陷，而是**場景決定的**：
+
+| 場景                    | 通訊方式       | 走 Gateway？ |
+|-------------------------|----------------|-------------|
+| 瀏覽器呼叫 API           | REST           | 是           |
+| 服務間高效呼叫           | gRPC           | 否           |
+| 即時推播給瀏覽器         | SignalR        | 是（可選）   |
+| 硬體設備 / 遊戲 Client   | TCP Raw        | 否           |
+
+### TCP 服務自己負責認證
+
+不走 Gateway 代表沒有集中的 JWT 驗證保護，
+TCP 服務需要**在協議層自己實作認證**：
+
+```
+連線建立
+    │
+    │  Client 第一包必須是 Auth Token
+    ↓
+Server 驗證 Token
+    ├─ 合法 → 繼續通訊
+    └─ 非法 → 立即關閉連線
+```
+
+可以定義一個專門的認證訊息：
+```csharp
+// Category = System, SubType = Auth
+{ (MessageCategory.System, (int)SystemSubType.Auth), new AuthHandler() }
+```
+
+---
+
 ## 協議擴充：加入版本號
 
 未來若需要同時支援新舊版本的 Client，可在最前面加 Version：
