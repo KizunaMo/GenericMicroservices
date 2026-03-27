@@ -54,11 +54,12 @@
 - [x] 4-B：TCP Socket Raw（自訂協議，對接硬體設備）
 
 ### Phase 5：安全性（正式上線前必備）
-- [ ] 5-A：JWT 身份驗證
+- [x] 5-A：JWT 身份驗證
   - Demo.AuthService（獨立服務）：查 DB + bcrypt 驗證 → 簽發 Token
   - Demo.Gateway：驗 Token，/auth/** 路由不需驗證
   - 受保護的 API endpoint（/api/**、/hub/**）
-  - Refresh Token 機制
+  - Refresh Token 機制（含 Rotation）
+  - 使用者管理端點（建立、列出、刪除、修改密碼）
 - [ ] 5-B：HTTPS / TLS
   - 開發環境憑證設定
   - 正式環境憑證（Let's Encrypt）

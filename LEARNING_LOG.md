@@ -120,17 +120,26 @@
 - DB 正規化：外鍵只存 Id，不重複存其他欄位，查詢時用 JOIN 取得關聯資料
 - EnsureCreated() vs Migrate()：前者無法更新已存在的 schema，一律改用 Migrate()
 
-#### AuthService 未來待完成的端點
-- [x] `POST /auth/refresh`：用 Refresh Token 換新的 Access Token
-- [ ] `POST /auth/register`：建立新使用者帳號
-- [ ] `GET  /auth/users`：列出所有使用者（需要 admin role）
-- [ ] `DELETE /auth/users/{id}`：刪除使用者（需要 admin role）
-- [ ] `PUT /auth/users/{id}/password`：修改密碼
+#### AuthService 端點完成狀態
+- [x] `POST /auth/login`：登入取得 Access Token + Refresh Token
+- [x] `POST /auth/refresh`：Refresh Token 換新 Access Token（含 Rotation）
+- [x] `POST /auth/logout`：撤銷 Refresh Token
+- [x] `POST /auth/users`：建立新使用者（需要 Token）
+- [x] `GET  /auth/users`：列出所有使用者（需要 Token）
+- [x] `DELETE /auth/users/{id}`：刪除使用者 + 撤銷所有 Refresh Token（需要 Token）
+- [x] `PUT /auth/users/{id}/password`：修改密碼 + 撤銷所有 Refresh Token（需要 Token）
 - [ ] `POST /auth/forgot-password`：寄重設密碼 Email（需要 SMTP / Email 服務）
 - [ ] `POST /auth/reset-password`：用一次性 Token 設新密碼
 - [ ] Seed 密碼改從 appsettings / 環境變數讀取（Phase 5-C Secrets 管理）
 
-> 重設密碼流程需要寄 Email（SMTP / SendGrid），安排在 Refresh Token 之後實作。
+#### 學到的概念（AuthService 架構）
+- AuthService 自己加 JWT 驗證（`RequireAuthorization()`），不完全依賴 Gateway
+- 兩層防線：Gateway 擋外部、AuthService 自己保護管理端點
+- Gateway 不需要知道 AuthService 內部哪些端點需要 Token，各服務自己管
+- 密碼修改、刪除使用者時同時撤銷所有 Refresh Token，強制重新登入
+
+### 下一步
+- Phase 5-B：HTTPS / TLS
 
 ### 下一步
 - Phase 5-A 後段：AuthService 使用者管理端點（register、delete、forgot-password）
