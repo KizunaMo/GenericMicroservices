@@ -279,9 +279,17 @@ dotnet user-secrets set "Jwt:SecretKey" "dev-secret-key-must-be-at-least-32-char
 **如何查看目前設定了哪些 Secrets：**
 
 ```bash
-cd Demo.AuthService && dotnet user-secrets list
-cd Demo.Gateway    && dotnet user-secrets list
+# 方法一：切換到專案目錄再執行
+cd Demo.AuthService
+dotnet user-secrets list
+
+# 方法二：在 solution 根目錄指定 --project
+dotnet user-secrets list --project Demo.AuthService/Demo.AuthService.csproj
+dotnet user-secrets list --project Demo.Gateway/Demo.Gateway.csproj
 ```
+
+> 注意：`dotnet user-secrets` 必須在有 `.csproj` 的目錄執行，或用 `--project` 指定。
+> 在 solution 根目錄執行會報錯：`Could not find a MSBuild project file`。
 
 **如何用 Finder 找到這個檔案：**
 
