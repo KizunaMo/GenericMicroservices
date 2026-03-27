@@ -1,4 +1,4 @@
-namespace GenericMicroservices.Core.Repositories;
+namespace Demo.DataService.Core.Repositories;
 
 public interface IRepository<T> where T : class
 {

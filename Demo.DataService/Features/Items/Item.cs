@@ -1,4 +1,4 @@
-namespace GenericMicroservices.Features.Items;
+namespace Demo.DataService.Features.Items;
 
 public class Item
 {

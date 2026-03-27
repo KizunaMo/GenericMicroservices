@@ -1,7 +1,7 @@
-using GenericMicroservices.Features.Items;
+using Demo.DataService.Features.Items;
 using Microsoft.EntityFrameworkCore;
 
-namespace GenericMicroservices.Data;
+namespace Demo.DataService.Data;
 
 // DbContext is the bridge between your C# code and the database.
 // Each DbSet<T> maps to one table in PostgreSQL.

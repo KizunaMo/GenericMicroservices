@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text.Json;
 
-namespace GenericMicroservices.Core.Common.Middleware;
+namespace Demo.DataService.Core.Common.Middleware;
 
 public class ExceptionMiddleware
 {

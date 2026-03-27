@@ -2,12 +2,12 @@ using Demo.Contracts;
 using MassTransit;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
-using GenericMicroservices.Core.Common;
-using GenericMicroservices.Core.Common.Middleware;
-using GenericMicroservices.Core.Repositories;
-using GenericMicroservices.Data;
-using GenericMicroservices.Features.Items;
-using GenericMicroservices.Services;
+using Demo.DataService.Core.Common;
+using Demo.DataService.Core.Common.Middleware;
+using Demo.DataService.Core.Repositories;
+using Demo.DataService.Data;
+using Demo.DataService.Features.Items;
+using Demo.DataService.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 

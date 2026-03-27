@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
-namespace GenericMicroservices.Core.Repositories;
+namespace Demo.DataService.Core.Repositories;
 
 public class Repository<T> : IRepository<T> where T : class
 {

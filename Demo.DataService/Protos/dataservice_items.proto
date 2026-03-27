@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option csharp_namespace = "GenericMicroservices";
+option csharp_namespace = "Demo.DataService";
 
 package dataservice;
 

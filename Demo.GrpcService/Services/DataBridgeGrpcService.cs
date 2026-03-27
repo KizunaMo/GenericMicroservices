@@ -1,4 +1,4 @@
-using GenericMicroservices;
+using Demo.DataService;
 using Grpc.Core;
 
 namespace Demo.GrpcService.Services;

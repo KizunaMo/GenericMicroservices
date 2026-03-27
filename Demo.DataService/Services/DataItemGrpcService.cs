@@ -1,8 +1,8 @@
-using GenericMicroservices.Data;
+using Demo.DataService.Data;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 
-namespace GenericMicroservices.Services;
+namespace Demo.DataService.Services;
 
 public class DataItemGrpcService : DataItemService.DataItemServiceBase
 {

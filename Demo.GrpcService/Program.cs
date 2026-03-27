@@ -1,6 +1,6 @@
 using Demo.GrpcService.Data;
 using Demo.GrpcService.Services;
-using GenericMicroservices;
+using Demo.DataService;
 using Microsoft.EntityFrameworkCore;
 
 // 允許對內部服務使用明文（非 TLS）HTTP/2

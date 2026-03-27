@@ -1,4 +1,4 @@
-namespace GenericMicroservices.Core.Common;
+namespace Demo.DataService.Core.Common;
 
 public class ApiResponse<T>
 {
