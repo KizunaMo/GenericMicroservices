@@ -83,5 +83,45 @@
 - CancellationToken：服務優雅關閉（Ctrl+C）
 - 每個 Client 各自一個 Task，主迴圈不被阻塞
 
+### 重構紀錄
+- GenericMicroservices 專案改名為 Demo.DataService（命名一致性）
+- 建立 Notes/Architecture-Overview.md（架構設計文件，含 ASCII 圖、設計理由、擴充方式）
+- 建立 Notes/Packages.md（所有套件一覽，含用途與安裝指令）
+
+---
+
+## 2026-03-27
+
+### Phase 5-A 進行中（JWT 身份驗證）
+
+#### 已完成
+- Demo.AuthService 建立（Port 5100，獨立服務）
+  - auth_db + Users 資料表（EF Core + PostgreSQL）
+  - bcrypt 密碼雜湊（BCrypt.Net-Next）
+  - 啟動時 Seed 初始 admin 帳號
+  - POST /auth/login：查 DB → bcrypt 驗證 → 簽發 JWT Token
+- Demo.Gateway 更新
+  - 移除 auth 邏輯，只保留 JWT 驗證（不簽發）
+  - /auth/** 路由轉發到 AuthService（不需 Token）
+  - /api/**、/hub/** 加上 AuthorizationPolicy，需要有效 Token
+- 測試通過：登入取得 Token → 帶 Token 呼叫 API → 不帶 Token 回 401
+
+#### 學到的概念（Phase 5-A）
+- JWT 結構：Header.Payload.Signature，三段 Base64Url 編碼
+- Claims：放在 Payload 的使用者資訊（Name、Role、NameIdentifier...）
+- Signature：用密鑰簽名，Server 用同一把密鑰驗證，Client 無法偽造
+- bcrypt：密碼雜湊算法，每次雜湊結果不同（內含 salt），只能用 Verify 比對
+- Seed Data：程式啟動時自動建立初始資料，確保開發環境有可用帳號
+- AuthService 獨立原則：Gateway 只驗 Token，AuthService 才簽發 Token（SRP）
+- YARP AuthorizationPolicy：在 appsettings.json 的 Route 設定授權，不用在程式碼寫
+
+#### AuthService 未來待完成的端點
+- [ ] `POST /auth/refresh`：用 Refresh Token 換新的 Access Token（Phase 5-A 後段）
+- [ ] `POST /auth/register`：建立新使用者帳號
+- [ ] `GET  /auth/users`：列出所有使用者（需要 admin role）
+- [ ] `DELETE /auth/users/{id}`：刪除使用者（需要 admin role）
+- [ ] `PUT /auth/users/{id}/password`：修改密碼
+- [ ] Seed 密碼改從 appsettings / 環境變數讀取（Phase 5-C Secrets 管理）
+
 ### 下一步
-- Phase 5：JWT 身份驗證（安全性）
+- Phase 5-A 後段：Refresh Token 機制
