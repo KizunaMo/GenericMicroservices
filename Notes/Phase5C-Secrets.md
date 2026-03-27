@@ -229,6 +229,124 @@ services:
 
 ---
 
+## 本專案實際操作紀錄
+
+### 步驟一：初始化 User Secrets（每個服務各做一次）
+
+在各個專案目錄下執行：
+
+```bash
+cd Demo.AuthService
+dotnet user-secrets init
+
+cd ../Demo.Gateway
+dotnet user-secrets init
+```
+
+**這個指令做了什麼：**
+在 `.csproj` 裡加入一行 `<UserSecretsId>`，這是這個專案的 Secrets 儲存位置的識別碼：
+
+```xml
+<!-- Demo.AuthService/Demo.AuthService.csproj -->
+<PropertyGroup>
+  <UserSecretsId>b82641d9-656d-4af3-8df4-af73e6d6b06d</UserSecretsId>
+</PropertyGroup>
+```
+
+**如何確認有沒有做過：**
+打開 `.csproj`，有 `<UserSecretsId>` 就代表已初始化。
+
+---
+
+### 步驟二：設定 Secrets（存到本機，不進 git）
+
+```bash
+# AuthService（在 Demo.AuthService 目錄執行）
+dotnet user-secrets set "Jwt:SecretKey" "dev-secret-key-must-be-at-least-32-chars!!"
+dotnet user-secrets set "ConnectionStrings:AuthDb" "Host=localhost;Database=auth_db;Username=yuweilyutcit;Password="
+
+# Gateway（在 Demo.Gateway 目錄執行）
+dotnet user-secrets set "Jwt:SecretKey" "dev-secret-key-must-be-at-least-32-chars!!"
+```
+
+**這些值存在哪裡：**
+
+```
+~/.microsoft/usersecrets/b82641d9-.../secrets.json  ← AuthService 的 Secrets
+~/.microsoft/usersecrets/c99eb5bb-.../secrets.json  ← Gateway 的 Secrets
+```
+
+**如何查看目前設定了哪些 Secrets：**
+
+```bash
+cd Demo.AuthService && dotnet user-secrets list
+cd Demo.Gateway    && dotnet user-secrets list
+```
+
+**如何用 Finder 找到這個檔案：**
+
+```
+Finder → 前往 → 前往檔案夾 → 輸入：~/.microsoft/usersecrets/
+找到對應 GUID 的資料夾，裡面有 secrets.json
+```
+
+**secrets.json 長這樣：**
+
+```json
+{
+  "Jwt:SecretKey": "dev-secret-key-must-be-at-least-32-chars!!",
+  "ConnectionStrings:AuthDb": "Host=localhost;Database=auth_db;Username=yuweilyutcit;Password="
+}
+```
+
+---
+
+### 步驟三：清空 appsettings.json 的敏感值
+
+**需要修改的檔案：**
+- `Demo.AuthService/appsettings.json`
+- `Demo.Gateway/appsettings.json`
+
+**改法：敏感值改成空字串，非敏感值保留**
+
+```json
+// Demo.AuthService/appsettings.json（改後）
+{
+  "ConnectionStrings": {
+    "AuthDb": ""           ← 清空，真實值在 User Secrets
+  },
+  "Jwt": {
+    "SecretKey": "",       ← 清空，真實值在 User Secrets
+    "Issuer":   "demo-app",   ← 非敏感，保留
+    "Audience": "demo-app"    ← 非敏感，保留
+  }
+}
+```
+
+**什麼叫敏感？什麼可以留？**
+
+| 值                          | 是否敏感 | 原因                              |
+|-----------------------------|----------|-----------------------------------|
+| `SecretKey`                 | 是       | 洩漏後可偽造任意 Token            |
+| `ConnectionStrings`（含帳密）| 是      | 洩漏後可直接連 DB                 |
+| `Issuer` / `Audience`       | 否       | 只是識別字串，沒有安全意義        |
+| `Logging` 設定              | 否       | 純行為設定                        |
+| `AllowedHosts`              | 否       | 純設定                            |
+
+---
+
+### 步驟四：驗證設定正確
+
+重啟服務後測試登入，如果 Token 正常回傳，代表 Configuration 系統成功從 User Secrets 讀到值。
+
+**如果服務啟動失敗（常見問題）：**
+```
+System.ArgumentException: JWT SecretKey is empty
+```
+→ User Secrets 沒設好，用 `dotnet user-secrets list` 確認。
+
+---
+
 ## 完整的 Secrets 管理流程
 
 ```
