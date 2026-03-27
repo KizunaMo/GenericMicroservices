@@ -110,13 +110,18 @@
 - JWT 結構：Header.Payload.Signature，三段 Base64Url 編碼
 - Claims：放在 Payload 的使用者資訊（Name、Role、NameIdentifier...）
 - Signature：用密鑰簽名，Server 用同一把密鑰驗證，Client 無法偽造
-- bcrypt：密碼雜湊算法，每次雜湊結果不同（內含 salt），只能用 Verify 比對
+- bcrypt：單向雜湊（不可逆），每次雜湊結果不同（內含 salt），只能用 Verify 比對，後端無法得知原始密碼
+- 忘記密碼 → 重設密碼（寄 Email 一次性連結），網站永遠不會寄出你的密碼
 - Seed Data：程式啟動時自動建立初始資料，確保開發環境有可用帳號
 - AuthService 獨立原則：Gateway 只驗 Token，AuthService 才簽發 Token（SRP）
 - YARP AuthorizationPolicy：在 appsettings.json 的 Route 設定授權，不用在程式碼寫
+- Refresh Token：隨機字串（非 JWT），存 DB，可主動撤銷；Access Token 無狀態不存 DB
+- Refresh Token Rotation：每次換 Token 同時撤銷舊的，防止 Token 被偷後長期濫用
+- DB 正規化：外鍵只存 Id，不重複存其他欄位，查詢時用 JOIN 取得關聯資料
+- EnsureCreated() vs Migrate()：前者無法更新已存在的 schema，一律改用 Migrate()
 
 #### AuthService 未來待完成的端點
-- [ ] `POST /auth/refresh`：用 Refresh Token 換新的 Access Token（Phase 5-A 下一步）
+- [x] `POST /auth/refresh`：用 Refresh Token 換新的 Access Token
 - [ ] `POST /auth/register`：建立新使用者帳號
 - [ ] `GET  /auth/users`：列出所有使用者（需要 admin role）
 - [ ] `DELETE /auth/users/{id}`：刪除使用者（需要 admin role）
@@ -128,4 +133,4 @@
 > 重設密碼流程需要寄 Email（SMTP / SendGrid），安排在 Refresh Token 之後實作。
 
 ### 下一步
-- Phase 5-A 後段：Refresh Token 機制
+- Phase 5-A 後段：AuthService 使用者管理端點（register、delete、forgot-password）
