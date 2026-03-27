@@ -1,16 +1,15 @@
 using Demo.GrpcService.Data;
 using Grpc.Core;
-using Grpc.Net.Client;
 using Microsoft.EntityFrameworkCore;
-using GenericMicroservices;
 
 namespace Demo.GrpcService.Services;
 
-public class ItemGrpcService : ItemService.ItemServiceBase
+// 職責：操作 grpc_db 的 GrpcItems 資料
+public class GrpcItemService : ItemService.ItemServiceBase
 {
     private readonly AppDbContext _db;
 
-    public ItemGrpcService(AppDbContext db)
+    public GrpcItemService(AppDbContext db)
     {
         _db = db;
     }
@@ -31,23 +30,6 @@ public class ItemGrpcService : ItemService.ItemServiceBase
 
         var response = new ItemListResponse();
         response.Items.AddRange(items.Select(item =>
-            new ItemResponse { Id = item.Id, Name = item.Name, Description = item.Description }));
-
-        return response;
-    }
-
-    public override async Task<ItemListResponse> GetAllItemsFromDataService(GetAllItemsRequest request, ServerCallContext context)
-    {
-        // 建立連線到 DataService（另一個微服務）
-        using var channel = GrpcChannel.ForAddress("http://localhost:5129");
-        var client = new DataItemService.DataItemServiceClient(channel);
-
-        // 呼叫 DataService 的 gRPC 方法
-        var result = await client.GetAllItemsAsync(new GetAllDataItemsRequest());
-
-        // 將 DataService 的回應格式轉換成自己的格式
-        var response = new ItemListResponse();
-        response.Items.AddRange(result.Items.Select(item =>
             new ItemResponse { Id = item.Id, Name = item.Name, Description = item.Description }));
 
         return response;

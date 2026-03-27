@@ -4,9 +4,14 @@ option csharp_namespace = "Demo.GrpcService";
 
 package items;
 
+// 負責 grpc_db 的 GrpcItems 資料
 service ItemService {
-  rpc GetItem (GetItemRequest) returns (ItemResponse);
+  rpc GetItem     (GetItemRequest)     returns (ItemResponse);
   rpc GetAllItems (GetAllItemsRequest) returns (ItemListResponse);
+}
+
+// 負責橋接其他服務（DataService）
+service DataBridgeService {
   rpc GetAllItemsFromDataService (GetAllItemsRequest) returns (ItemListResponse);
 }
 
