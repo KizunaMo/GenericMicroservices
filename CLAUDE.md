@@ -60,9 +60,10 @@
   - 受保護的 API endpoint（/api/**、/hub/**）
   - Refresh Token 機制（含 Rotation）
   - 使用者管理端點（建立、列出、刪除、修改密碼）
-- [ ] 5-B：HTTPS / TLS
-  - 開發環境憑證設定
-  - 正式環境憑證（Let's Encrypt）
+- [x] 5-B：HTTPS / TLS
+  - 開發環境憑證設定（dotnet dev-certs https --trust）
+  - Gateway 同時監聽 HTTP :5000 和 HTTPS :5001
+  - 正式環境憑證（Let's Encrypt，Phase 6 部署時處理）
 - [ ] 5-C：Secrets 管理
   - 環境變數取代 appsettings.json 中的敏感資訊
   - .NET User Secrets（開發）
@@ -111,7 +112,8 @@
 ## 服務 Port 對照
 | 服務             | Port | 協議     | 說明                       |
 |------------------|------|----------|----------------------------|
-| Demo.Gateway     | 5000 | HTTP/1.1 | 唯一對外入口               |
+| Demo.Gateway     | 5000 | HTTP/1.1 | 唯一對外入口（開發用）     |
+| Demo.Gateway     | 5001 | HTTPS    | 唯一對外入口（加密）       |
 | Demo.AuthService | 5100 | HTTP/1.1 | JWT 簽發，使用者管理       |
 | Demo.DataService | 5128 | HTTP/1.1 | REST API + Swagger         |
 | Demo.DataService | 5129 | HTTP/2   | gRPC（供內部服務呼叫）     |

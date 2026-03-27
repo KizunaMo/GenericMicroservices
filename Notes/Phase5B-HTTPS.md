@@ -116,12 +116,63 @@ Gateway 這層加密已經保護了 Client 和伺服器之間的傳輸，這是�
 ## launchSettings.json 設定
 
 ```json
-"http": {
-  "applicationUrl": "https://localhost:5001;http://localhost:5000"
+"profiles": {
+  "http": {
+    "commandName": "Project",
+    "applicationUrl": "https://localhost:5001;http://localhost:5000"
+  }
 }
 ```
 
-.NET 自動讀取這個設定，同時啟動 HTTP 和 HTTPS。
+`applicationUrl` 用分號分隔，同時定義多個監聽位址。
+.NET 啟動時會同時監聽兩個 Port。
+
+**5001 只是慣例，不是強制規定：**
+
+```
+.NET 新建專案預設：
+  http  → 5000
+  https → 5001
+
+這只是業界慣例，讓人看到 5001 就知道是 HTTPS。
+你可以改成任何數字，例如 8080 / 8443。
+```
+
+**本專案所有 Port 都是自己定義的：**
+
+```
+全部在 launchSettings.json 或 appsettings.json 設定，
+沒有任何一個 Port 是系統強制的。
+
+Demo.Gateway     :5000 (HTTP)  :5001 (HTTPS)   ← launchSettings.json
+Demo.AuthService :5100                          ← launchSettings.json
+Demo.DataService :5128 (REST)  :5129 (gRPC)    ← ConfigureKestrel（Program.cs）
+Demo.RealTime    :5200                          ← launchSettings.json
+Demo.GrpcService :5300                          ← launchSettings.json
+Demo.TcpService  :5400                          ← Program.cs（TcpListener）
+```
+
+**在哪裡設定 Port 的優先順序：**
+
+```
+優先順序（高 → 低）：
+  1. ConfigureKestrel（Program.cs）  ← 最高，覆蓋一切
+  2. 環境變數 ASPNETCORE_URLS
+  3. appsettings.json 的 Kestrel 設定
+  4. launchSettings.json             ← 最低，只在開發時生效
+
+正式環境用環境變數控制 Port，不寫死在程式碼裡。
+開發環境用 launchSettings.json 方便設定。
+```
+
+**如何查看目前服務跑在哪個 Port：**
+
+服務啟動時 console 會印出：
+```
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: https://localhost:5001
+      Now listening on: http://localhost:5000
+```
 
 ---
 

@@ -138,8 +138,20 @@
 - Gateway 不需要知道 AuthService 內部哪些端點需要 Token，各服務自己管
 - 密碼修改、刪除使用者時同時撤銷所有 Refresh Token，強制重新登入
 
-### 下一步
-- Phase 5-B：HTTPS / TLS
+### Phase 5-B 完成（HTTPS / TLS）
+- `dotnet dev-certs https --trust` 產生並信任開發用自簽憑證
+- Gateway launchSettings.json 加入 `https://localhost:5001;http://localhost:5000`
+- 測試：https://localhost:5001/auth/login 成功，Token 正常運作
+
+#### 學到的概念（Phase 5-B）
+- TLS 兩件事：加密傳輸（防竊聽） + 身份驗證（防冒牌伺服器）
+- 憑證種類：自簽憑證（開發用，瀏覽器警告）vs CA 憑證（正式環境，Let's Encrypt）
+- 只有 Gateway 對外 HTTPS，內部服務用 HTTP（同內網，Gateway 已保護最重要的一段）
+- launchSettings.json `applicationUrl` 用分號分隔，同時監聽多個 Port
+- 5001 是 .NET 社群慣例（不是強制），看到 5001 就知道是 HTTPS
+- Port 設定優先順序：ConfigureKestrel > 環境變數 > appsettings.json > launchSettings.json
+- 正式環境用環境變數控制 Port，不寫死在程式碼
+- 服務啟動時 console 會印出正在監聽的所有 Port
 
 ### 下一步
-- Phase 5-A 後段：AuthService 使用者管理端點（register、delete、forgot-password）
+- Phase 5-C：Secrets 管理
