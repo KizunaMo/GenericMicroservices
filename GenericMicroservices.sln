@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Demo.TcpService", "Demo.Tcp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Demo.TcpTestConsole", "Demo.TcpTestConsole\Demo.TcpTestConsole.csproj", "{E400EF35-F245-4703-AC44-0956287A05F3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Demo.AuthService", "Demo.AuthService\Demo.AuthService.csproj", "{A1611F70-40AA-41BC-B29E-BB0A1AC71472}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -61,5 +63,9 @@ Global
 		{E400EF35-F245-4703-AC44-0956287A05F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E400EF35-F245-4703-AC44-0956287A05F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E400EF35-F245-4703-AC44-0956287A05F3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1611F70-40AA-41BC-B29E-BB0A1AC71472}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1611F70-40AA-41BC-B29E-BB0A1AC71472}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1611F70-40AA-41BC-B29E-BB0A1AC71472}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1611F70-40AA-41BC-B29E-BB0A1AC71472}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

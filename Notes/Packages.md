@@ -52,6 +52,27 @@ dotnet add package Npgsql.EntityFrameworkCore.PostgreSQL --version 8.0.0
 
 ---
 
+## Demo.AuthService
+
+```bash
+cd Demo.AuthService
+dotnet add package Microsoft.EntityFrameworkCore                --version 8.0.0
+dotnet add package Microsoft.EntityFrameworkCore.Design        --version 8.0.0
+dotnet add package Npgsql.EntityFrameworkCore.PostgreSQL       --version 8.0.0
+dotnet add package BCrypt.Net-Next                             --version 4.0.3
+dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer --version 8.0.0
+```
+
+| 套件                                          | 用途                                                              |
+|-----------------------------------------------|-------------------------------------------------------------------|
+| Microsoft.EntityFrameworkCore                 | ORM 核心，操作 auth_db                                            |
+| Microsoft.EntityFrameworkCore.Design          | `dotnet ef` CLI 工具                                              |
+| Npgsql.EntityFrameworkCore.PostgreSQL         | PostgreSQL 驅動，連接 auth_db                                     |
+| BCrypt.Net-Next                               | 密碼雜湊，儲存和驗證時使用，**絕不儲存明文密碼**                   |
+| Microsoft.AspNetCore.Authentication.JwtBearer | 簽發 JWT Token（AuthService 負責簽發）                            |
+
+---
+
 ## Demo.Gateway
 
 ```bash
@@ -63,7 +84,10 @@ dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer   --version 8.0
 | 套件                                          | 用途                                                              |
 |-----------------------------------------------|-------------------------------------------------------------------|
 | Yarp.ReverseProxy                             | 反向代理，根據路徑將請求轉發到對應的內部服務                       |
-| Microsoft.AspNetCore.Authentication.JwtBearer | JWT Token 驗證，解析並驗證 Bearer Token 的簽名、過期時間、Issuer  |
+| Microsoft.AspNetCore.Authentication.JwtBearer | JWT Token **驗證**（Gateway 只驗 Token，不簽發）                  |
+
+> Gateway 不持有 DB，不簽發 Token。
+> 簽發 Token 是 Demo.AuthService 的職責。
 
 ---
 

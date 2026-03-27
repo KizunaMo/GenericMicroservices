@@ -17,40 +17,40 @@
           ┌────────────────────────────────────────────────┐
           │                 Demo.Gateway  :5000            │
           │  ・唯一對外 HTTP 入口                            │
-          │  ・JWT 驗證（所有 /api/** 和 /hub/** 集中驗證）    │
+          │  ・JWT 驗證（/api/**、/hub/** 需要 Token）       │
           │  ・CORS 集中處理（解決瀏覽器跨域問題）              │
           │  ・YARP 反向代理（根據路徑轉發到對應服務）           │
           └──────────────────┬─────────────────────────────┘
                              │
-              ┌──────────────┴──────────────┐
-              │ /api/**                     │ /hub/**
-              ▼                             ▼
-┌─────────────────────────┐   ┌──────────────────────────┐
-│    Demo.DataService     │   │      Demo.RealTime        │
-│  :5128 (HTTP/1.1 REST)  │   │  :5200 (WebSocket)        │
-│  :5129 (HTTP/2 gRPC)    │   │  ・SignalR Hub            │
-│  ・Items CRUD API        │   │  ・即時雙向推播            │
-│  ・EF Core + PostgreSQL  │   │  ・ChatHub               │
-│  ・demo_db               │   └──────────────────────────┘
-└────────────▲────────────┘
-             │ gRPC 服務間直連（不走 Gateway）
-             │
-┌────────────┴────────────┐
-│    Demo.GrpcService      │
-│  :5300 (HTTP/2 gRPC)     │
-│  ・高效能服務間通訊         │
-│  ・EF Core + PostgreSQL  │
-│  ・grpc_db               │
-└──────────────────────────┘
+       ┌─────────────────────┼────────────────┐
+       │ /auth/**            │ /api/**         │ /hub/**
+       ▼                     ▼                 ▼
+┌──────────────────┐  ┌──────────────────┐  ┌──────────────────────┐
+│ Demo.AuthService │  │ Demo.DataService │  │    Demo.RealTime      │
+│ :5100            │  │ :5128 (REST)     │  │  :5200 (WebSocket)    │
+│ ・登入 → 簽發JWT  │  │ :5129 (gRPC)     │  │  ・SignalR Hub        │
+│ ・bcrypt 密碼驗證 │  │ ・Items CRUD API │  │  ・即時雙向推播        │
+│ ・EF Core        │  │ ・EF Core        │  └──────────────────────┘
+│ ・auth_db        │  │ ・demo_db        │
+└──────────────────┘  └────────▲─────────┘
+                               │ gRPC 服務間直連（不走 Gateway）
+                               │
+                    ┌──────────┴──────────┐
+                    │   Demo.GrpcService  │
+                    │   :5300 (HTTP/2)    │
+                    │   ・高效能服務間通訊  │
+                    │   ・EF Core         │
+                    │   ・grpc_db         │
+                    └─────────────────────┘
 
 
 ┌──────────────────────────────────────────┐
 │             Demo.TcpService  :5400       │
-│  ・完全獨立，不經過 Gateway                 │
-│  ・TCP Socket Raw，自訂封包協議             │
-│  ・Category + SubType 兩層訊息分類         │
-│  ・Watchdog 心跳超時偵測                   │
-│  對象：硬體設備 / 遊戲 Client（TCP 直連）    │
+│  ・完全獨立，不經過 Gateway               │
+│  ・TCP Socket Raw，自訂封包協議           │
+│  ・Category + SubType 兩層訊息分類        │
+│  ・Watchdog 心跳超時偵測                  │
+│  對象：硬體設備 / 遊戲 Client（TCP 直連） │
 └──────────────────────────────────────────┘
 ```
 
@@ -60,7 +60,8 @@
 
 | 專案                 | Port            | 協議             | 職責                                     |
 |----------------------|-----------------|------------------|------------------------------------------|
-| Demo.Gateway         | 5000            | HTTP/1.1         | 對外入口，JWT 驗證、CORS、路由轉發        |
+| Demo.Gateway         | 5000            | HTTP/1.1         | 對外入口，JWT 驗證（不簽發）、CORS、路由轉發 |
+| Demo.AuthService     | 5100            | HTTP/1.1         | 使用者管理，登入驗證，簽發 JWT Token      |
 | Demo.DataService     | 5128 / 5129     | HTTP/1.1 / HTTP/2| Items CRUD，連接 demo_db                 |
 | Demo.RealTime        | 5200            | WebSocket        | SignalR Hub，即時雙向推播                |
 | Demo.GrpcService     | 5300            | HTTP/2           | gRPC 服務，連接 grpc_db                  |
