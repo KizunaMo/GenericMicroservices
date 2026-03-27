@@ -26,6 +26,7 @@
 4. **密碼必須雜湊儲存**：絕對不允許明文儲存密碼，一律使用 bcrypt。
 
 5. **SOLID 原則**：SRP、DI、Interface 等原則不因為是學習專案而省略。
+6. **DB Schema 管理一律使用 Migration**：不使用 `EnsureCreated()`。`EnsureCreated()` 無法追蹤 schema 變更，DB 已存在時什麼都不做，新增資料表會失效。
 
 6. **步驟可以拆細、可以多花時間，但不能選擇錯誤的設計**。
 

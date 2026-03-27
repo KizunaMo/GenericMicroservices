@@ -161,6 +161,55 @@ dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer --version 8.0.0
 
 ---
 
+## bcrypt 密碼雜湊
+
+### 雜湊 vs 加密
+
+```
+加密（Encryption）：可以用密鑰解密還原原始內容
+雜湊（Hashing）：   單向，不可逆，無法還原原始密碼
+
+"password" ──bcrypt──► "$2a$11$abc123xyz..."
+                               │
+                               └── 無法反推回 "password"
+```
+
+後端永遠不知道使用者的原始密碼，**包括開發者自己**。這是設計目的。
+
+### 驗證方式
+
+不是解密，而是重新雜湊再比對：
+
+```csharp
+// 儲存時
+PasswordHash = BCrypt.Net.BCrypt.HashPassword("password");
+// → "$2a$11$randomSaltEmbedded...hashedResult"
+
+// 驗證時
+BCrypt.Net.BCrypt.Verify("password", storedHash);
+// 對輸入的密碼重新走一次雜湊流程，比對結果是否一致
+// → true / false
+```
+
+bcrypt 每次雜湊結果都不同（內含隨機 salt），但 Verify 仍能正確比對。
+
+### 忘記密碼怎麼辦？
+
+因為無法還原，「忘記密碼」的標準做法是「重設密碼」而不是「找回密碼」：
+
+```
+使用者點「忘記密碼」→ 輸入 Email
+  → Server 產生一次性重設連結（有時效，存 DB）
+  → 寄到使用者 Email
+  → 使用者點連結 → 輸入新密碼
+  → Server 用新密碼重新雜湊存入 DB，舊雜湊覆蓋
+```
+
+> 正確的網站永遠不會「寄你的密碼給你」，只會讓你設新的。
+> 如果收到含有明文密碼的 Email，代表該網站密碼沒有雜湊，有資安風險。
+
+---
+
 ## 密鑰管理
 
 開發環境：放在 `appsettings.json`（不可 commit 到公開 repo）
@@ -183,24 +232,110 @@ export Jwt__SecretKey="production-secret-key"
 
 ---
 
-## 本專案 /auth/login 設計（學習用，帳密寫死）
+## 本專案架構：Gateway 驗證，AuthService 簽發
 
-```csharp
-// 學習用：帳密寫死，真實專案應查 DB
-app.MapPost("/auth/login", (LoginRequest req, IConfiguration config) =>
-{
-    if (req.Username != "admin" || req.Password != "password")
-        return Results.Unauthorized();
-
-    // 產生 Token...
-    return Results.Ok(new { token = tokenString });
-});
-
-record LoginRequest(string Username, string Password);
+```
+Client
+  │
+  ├── POST /auth/login ──────────────────────────► Demo.AuthService（:5100）
+  │                                                  查 auth_db + bcrypt 驗證
+  │                                                  → 簽發 Access Token + Refresh Token
+  │
+  ├── GET /api/** （帶 Access Token）
+  │        │
+  │        ▼
+  │   Demo.Gateway（:5000）
+  │   驗證 Token（用密鑰比對 Signature）
+  │        │ 通過
+  │        ▼
+  │   Demo.DataService（:5128）
+  │
+  └── POST /auth/refresh （帶 Refresh Token）─────► Demo.AuthService
+                                                     查 DB 確認 Refresh Token 有效
+                                                     → 簽發新的 Access Token
 ```
 
-> 學習重點是 JWT 的機制，不是帳密管理。
-> 真實專案的帳密驗證：查 DB + bcrypt 密碼雜湊。
+> Gateway 只驗 Token（無狀態），AuthService 才簽發 Token（有狀態，需要 DB）。
+
+---
+
+## Token 有效期設定
+
+在 AuthService Program.cs：
+```csharp
+expires: DateTime.UtcNow.AddHours(1),  // Access Token 有效期
+```
+
+常見設定參考：
+
+| 場景           | Access Token    | Refresh Token   |
+|----------------|-----------------|-----------------|
+| 一般 Web App   | 15 分鐘 ~ 1 小時 | 7 ~ 30 天       |
+| 銀行 / 高安全性 | 5 ~ 15 分鐘     | 無（每次重新登入）|
+| 手機 App       | 1 小時          | 90 天 ~ 1 年    |
+
+原則：**安全需求越高 → Token 越短**。沒有絕對標準，依業務需求決定。
+
+---
+
+## Refresh Token 機制
+
+### 為什麼需要？
+
+只有 Access Token 的問題：
+```
+Access Token 過期（1小時）
+  → Client 必須重新輸入帳密
+  → 使用者體驗很差
+```
+
+Refresh Token 的解法：登入時同時發兩個 Token：
+
+| Token         | 用途                   | 有效期  | 儲存位置      |
+|---------------|------------------------|---------|---------------|
+| Access Token  | 呼叫 API（帶在 Header）| 短      | Client 記憶體 |
+| Refresh Token | 換新 Access Token 用   | 長      | Client + DB   |
+
+### 完整流程
+
+```
+① 使用者登入
+     → 取得 Access Token（1小時）+ Refresh Token（7天）
+     → 每次登入都會產生全新的 Token
+
+② 正常使用（Access Token 有效期內）
+     → 每個請求帶 Access Token
+     → Gateway 驗證通過 → 轉發
+
+③ Access Token 過期 → 收到 401
+     → Client 自動在背景呼叫 POST /auth/refresh
+     → Server 查 DB 確認 Refresh Token 有效
+     → 回傳新的 Access Token
+     → 使用者完全無感，繼續使用
+
+④ Refresh Token 也過期（7天沒開 App）
+     → 才真正需要使用者重新登入
+```
+
+### 為什麼 Refresh Token 必須存 DB？
+
+```
+Access Token  → 無狀態，Gateway 用密鑰驗就好，不需查 DB
+Refresh Token → 必須存 DB，原因：
+
+  使用者登出 → 刪除 DB 裡的 Refresh Token → 立即失效
+  帳號被封鎖 → 刪除 DB 裡的 Refresh Token → 立即失效
+  密碼被修改 → 刪除所有 Refresh Token     → 所有裝置登出
+
+  如果不存 DB → 7天內還是能換新 Token，無法主動撤銷
+```
+
+### 什麼時候真的需要重新登入？
+
+1. Refresh Token 到期（長時間沒使用）
+2. 主動登出（刪除 Client 的 Token + Server 刪除 DB 的 Refresh Token）
+3. 管理員封鎖帳號
+4. 密碼被修改（通常讓所有 Refresh Token 一起失效）
 
 ---
 
@@ -208,15 +343,22 @@ record LoginRequest(string Username, string Password);
 
 ```
 1. Client → POST /auth/login { username, password }
-2. Gateway 驗證帳密 → 產生 JWT Token → 回傳給 Client
-3. Client 儲存 Token（記憶體 / localStorage / Cookie）
+2. AuthService 查 DB，bcrypt 驗證密碼
+   → 產生 Access Token + Refresh Token
+   → Refresh Token 存入 auth_db
+   → 回傳兩個 Token 給 Client
 
-4. Client → GET /api/items
-           Authorization: Bearer <token>
-5. Gateway 的 JwtBearer Middleware 解析並驗證 Token
+3. Client → GET /api/items
+            Authorization: Bearer <access_token>
+4. Gateway 的 JwtBearer Middleware 解析並驗證 Access Token
    ├── 驗簽（Signature 對不對）
    ├── 驗過期（exp 有沒有超過）
    └── 驗 Issuer / Audience
-6. 驗證通過 → YARP 轉發到 DataService
+5. 驗證通過 → YARP 轉發到 DataService
    驗證失敗 → 回 401 Unauthorized，不轉發
+
+6. Access Token 過期 → Client 自動呼叫：
+   POST /auth/refresh { refreshToken: "..." }
+   → AuthService 查 DB 確認 Refresh Token 有效且未過期
+   → 回傳新的 Access Token
 ```

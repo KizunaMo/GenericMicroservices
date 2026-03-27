@@ -116,12 +116,16 @@
 - YARP AuthorizationPolicy：在 appsettings.json 的 Route 設定授權，不用在程式碼寫
 
 #### AuthService 未來待完成的端點
-- [ ] `POST /auth/refresh`：用 Refresh Token 換新的 Access Token（Phase 5-A 後段）
+- [ ] `POST /auth/refresh`：用 Refresh Token 換新的 Access Token（Phase 5-A 下一步）
 - [ ] `POST /auth/register`：建立新使用者帳號
 - [ ] `GET  /auth/users`：列出所有使用者（需要 admin role）
 - [ ] `DELETE /auth/users/{id}`：刪除使用者（需要 admin role）
 - [ ] `PUT /auth/users/{id}/password`：修改密碼
+- [ ] `POST /auth/forgot-password`：寄重設密碼 Email（需要 SMTP / Email 服務）
+- [ ] `POST /auth/reset-password`：用一次性 Token 設新密碼
 - [ ] Seed 密碼改從 appsettings / 環境變數讀取（Phase 5-C Secrets 管理）
+
+> 重設密碼流程需要寄 Email（SMTP / SendGrid），安排在 Refresh Token 之後實作。
 
 ### 下一步
 - Phase 5-A 後段：Refresh Token 機制
