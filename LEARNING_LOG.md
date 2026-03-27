@@ -64,6 +64,24 @@
 - Port 設定優先順序：ConfigureKestrel > 環境變數 > appsettings > launchSettings
 - 正式環境 Port 應由環境變數控制，不寫死在程式碼裡
 
+### Phase 4-B 完成
+- Demo.TcpService 建立（Console App，port 5400）
+- 基礎封包格式：[ Length ][ Data ]，ReadExactAsync 解決黏包問題
+- 擴充封包格式：[ Category ][ SubType ][ Length ][ Data ]
+- Protocol 層：MessageCategory、ItemSubType、SystemSubType enum
+- IMessageHandler interface + 各 Handler 實作（Strategy Pattern）
+- Dictionary 分派器：根據 (Category, SubType) 找對應 Handler
+- Demo.TcpTestConsole：測試各種 Category + SubType 組合
+- 未知類型回傳錯誤訊息驗證成功
+
+### 學到的概念（Phase 4-B）
+- TCP 在協議層的位置（傳輸層，HTTP/gRPC 都建立在它之上）
+- 黏包問題：TCP 是串流，ReadAsync 不保證一次讀完，需要 ReadExactAsync
+- 封包格式設計：Header 固定，Data 依 SubType 變化
+- 兩層分類（Category + SubType）：大分類管理，SubType 各自獨立
+- Strategy Pattern 應用：IMessageHandler + Dictionary 分派
+- CancellationToken：服務優雅關閉（Ctrl+C）
+- 每個 Client 各自一個 Task，主迴圈不被阻塞
+
 ### 下一步
-- Phase 4-B：TCP Socket Raw（自訂協議）
 - Phase 5：JWT 身份驗證（安全性）

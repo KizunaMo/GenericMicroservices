@@ -25,7 +25,7 @@
 
 ### Phase 4：其他通訊協議
 - [x] 4-A：gRPC（高效能服務間通訊）
-- [ ] 4-B：TCP Socket Raw（自訂協議，對接硬體設備）
+- [x] 4-B：TCP Socket Raw（自訂協議，對接硬體設備）
 
 ### Phase 5：安全性（正式上線前必備）
 - [ ] 5-A：JWT 身份驗證（集中在 Gateway）
