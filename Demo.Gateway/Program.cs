@@ -61,6 +61,8 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
+builder.Services.AddHealthChecks();
+
 // ── CORS ──────────────────────────────────────────────────────
 const string corsPolicy = "GatewayPolicy";
 
@@ -91,5 +93,6 @@ app.UseAuthorization();
 // /hub/**  → RealTime（需要 Token）
 // 授權規則在 appsettings.json 的 ReverseProxy Routes 設定
 app.MapReverseProxy().RequireCors(corsPolicy);
+app.MapHealthChecks("/health");
 
 app.Run();

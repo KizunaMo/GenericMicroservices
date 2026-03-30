@@ -18,11 +18,13 @@ builder.Services.AddGrpcClient<DataItemService.DataItemServiceClient>(o =>
 });
 
 builder.Services.AddGrpc();
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
 app.MapGrpcService<GrpcItemService>();
 app.MapGrpcService<DataBridgeGrpcService>();
 app.MapGet("/", () => "gRPC service is running.");
+app.MapHealthChecks("/health");
 
 app.Run();

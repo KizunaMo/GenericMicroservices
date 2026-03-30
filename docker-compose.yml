@@ -27,7 +27,8 @@ services:
       - Jwt__Audience=demo-app
       - ConnectionStrings__AuthDb=Host=postgres;Database=auth_db;Username=postgres;Password=postgres
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy   # 等 postgres 真正 ready 才啟動
 
   # ── DataService ───────────────────────────────────────────
   data-service:
@@ -38,8 +39,10 @@ services:
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=demo_db;Username=postgres;Password=postgres
       - RabbitMq__Host=rabbitmq
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy   # 等 postgres 真正 ready 才啟動
+      rabbitmq:
+        condition: service_started   # rabbitmq 沒有 healthcheck，用 started 就好
 
   # ── RealTime（SignalR）────────────────────────────────────
   realtime-service:
@@ -55,7 +58,8 @@ services:
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=grpc_db;Username=postgres;Password=postgres
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy   # 等 postgres 真正 ready 才啟動
 
   # ── Worker（RabbitMQ Consumer）────────────────────────────
   worker:
@@ -81,6 +85,11 @@ services:
       - POSTGRES_PASSWORD=postgres
     volumes:
       - postgres-data:/var/lib/postgresql/data   # 資料持久化
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]   # postgres 內建指令，確認 DB 真正 ready
+      interval: 5s    # 每 5 秒檢查一次
+      timeout: 5s     # 超過 5 秒沒回應算失敗
+      retries: 5      # 連續失敗 5 次才標記為 unhealthy
 
   # ── RabbitMQ ─────────────────────────────────────────────
   rabbitmq:

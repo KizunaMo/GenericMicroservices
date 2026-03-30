@@ -246,5 +246,18 @@
 - 正式環境關閉 Swagger：避免暴露 API 結構給攻擊者
 - 設定值應在 appsettings.json，不靠程式碼 `?? fallback` 來補
 
+### Phase 6-D 完成（Health Checks）
+- 各服務加入 `AddHealthChecks()` + `MapHealthChecks("/health")`（Gateway、Auth、Data、RealTime、Grpc）
+- docker-compose.yml：postgres 加入 healthcheck（`pg_isready`）
+- depends_on 改用 `condition: service_healthy`，等 DB 真正 ready 才啟動服務
+- 建立 Notes/Phase6D-HealthChecks.md
+
+#### 學到的概念（Phase 6-D）
+- `depends_on` 只等 Container 啟動，不等服務 ready → 需要 healthcheck + condition 配合
+- `pg_isready`：PostgreSQL 內建工具，確認 DB 是否接受連線
+- `condition: service_healthy`：等 healthcheck 通過才啟動，比 `service_started` 更安全
+- `MapHealthChecks("/health")`：暴露 HTTP 探測端點，回傳 200 Healthy / 503 Unhealthy
+- Health Check 是監控基礎設施（Prometheus / K8s liveness probe）的標準介面
+
 ### 下一步
-- Phase 6-D：健康檢查（Health Checks）
+- Phase 7-A：結構化日誌（Serilog）

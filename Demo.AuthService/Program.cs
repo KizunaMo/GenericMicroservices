@@ -31,6 +31,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 builder.Services.AddAuthorization();
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
@@ -54,6 +55,7 @@ using (var scope = app.Services.CreateScope())
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapHealthChecks("/health");   // Docker 用來探測服務是否 ready
 
 // ── JWT 設定（簽發用）────────────────────────────────────────
 var jwtSection      = builder.Configuration.GetSection("Jwt");

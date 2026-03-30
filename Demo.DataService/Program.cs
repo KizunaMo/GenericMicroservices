@@ -38,6 +38,7 @@ builder.Services.AddMassTransit(x =>
 builder.Services.AddGrpc();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
@@ -102,5 +103,6 @@ app.MapDelete("/api/items/{id}", async (int id, IRepository<Item> repo) =>
 });
 
 app.MapGrpcService<DataItemGrpcService>();
+app.MapHealthChecks("/health");   // Docker 用來探測服務是否 ready
 
 app.Run();
