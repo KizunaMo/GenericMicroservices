@@ -3,6 +3,8 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -60,6 +62,15 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit           = 0
             }));
 });
+
+// ── OpenTelemetry 分散式追蹤 ──────────────────────────────────
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("Demo.Gateway"))   // 在 Jaeger 裡顯示的服務名稱
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()   // 自動追蹤進來的 HTTP 請求
+        .AddHttpClientInstrumentation()   // 自動追蹤對下游服務的 HTTP 呼叫（YARP 轉發）
+        .AddOtlpExporter(o => o.Endpoint = new Uri(
+            builder.Configuration["Otlp:Endpoint"] ?? "http://localhost:4317")));
 
 // ── YARP ──────────────────────────────────────────────────────
 builder.Services.AddReverseProxy()

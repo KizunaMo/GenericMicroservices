@@ -93,7 +93,12 @@
   - 所有服務安裝 Serilog.AspNetCore
   - 從 appsettings.json 讀取設定（MinimumLevel、WriteTo、Enrich）
   - 格式：`[HH:mm:ss LVL] Message`
-- [ ] 7-B：分散式追蹤（OpenTelemetry）
+- [x] 7-B：分散式追蹤（OpenTelemetry）
+  - Gateway、AuthService、DataService 安裝 OTel 套件
+  - `AddOpenTelemetry().WithTracing(...)` 自動追蹤 HTTP + EF Core
+  - `AddOtlpExporter` 送資料到 Jaeger（port 4317）
+  - Jaeger UI：http://localhost:16686（docker-compose 啟動）
+  - appsettings.json 的 `Otlp:Endpoint` 本機用 localhost，Docker 用 jaeger
 - [ ] 7-C：指標監控（Prometheus + Grafana）
 
 ---

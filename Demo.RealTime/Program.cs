@@ -1,4 +1,6 @@
 using Demo.RealTime.Hubs;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,6 +10,14 @@ builder.Host.UseSerilog((context, config) =>
 
 builder.Services.AddSignalR();
 builder.Services.AddHealthChecks();
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("Demo.RealTime"))
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()   // 追蹤 WebSocket upgrade 請求
+        .AddHttpClientInstrumentation()
+        .AddOtlpExporter(o => o.Endpoint = new Uri(
+            builder.Configuration["Otlp:Endpoint"] ?? "http://localhost:4317")));
 
 var app = builder.Build();
 

@@ -11,6 +11,7 @@ services:
       - Jwt__SecretKey=${JWT_SECRET_KEY}   # 從 .env 讀取，不寫死在這裡
       - Jwt__Issuer=demo-app
       - Jwt__Audience=demo-app
+      - Otlp__Endpoint=http://jaeger:4317  # Docker 內部指向 jaeger 容器
     depends_on:
       - auth-service
       - data-service
@@ -26,6 +27,7 @@ services:
       - Jwt__Issuer=demo-app
       - Jwt__Audience=demo-app
       - ConnectionStrings__AuthDb=Host=postgres;Database=auth_db;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      - Otlp__Endpoint=http://jaeger:4317  # Docker 內部指向 jaeger 容器
     depends_on:
       postgres:
         condition: service_healthy   # 等 postgres 真正 ready 才啟動
@@ -38,6 +40,7 @@ services:
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=demo_db;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
       - RabbitMq__Host=rabbitmq
+      - Otlp__Endpoint=http://jaeger:4317  # Docker 內部指向 jaeger 容器
     depends_on:
       postgres:
         condition: service_healthy   # 等 postgres 真正 ready 才啟動
@@ -49,6 +52,8 @@ services:
     build:
       context: .
       dockerfile: Demo.RealTime/Dockerfile
+    environment:
+      - Otlp__Endpoint=http://jaeger:4317
 
   # ── GrpcService ───────────────────────────────────────────
   grpc-service:
@@ -57,6 +62,7 @@ services:
       dockerfile: Demo.GrpcService/Dockerfile
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=grpc_db;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      - Otlp__Endpoint=http://jaeger:4317
     depends_on:
       postgres:
         condition: service_healthy   # 等 postgres 真正 ready 才啟動
@@ -76,6 +82,13 @@ services:
       dockerfile: Demo.TcpService/Dockerfile
     ports:
       - "5400:5400"      # TCP Raw，需要對外開放
+
+  # ── Jaeger（分散式追蹤可視化）────────────────────────────
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"   # Jaeger UI（瀏覽器開啟）
+      - "4317:4317"     # OTLP gRPC（.NET 服務送追蹤資料到這裡）
 
   # ── PostgreSQL ────────────────────────────────────────────
   postgres:

@@ -2,6 +2,8 @@ using Demo.GrpcService.Data;
 using Demo.GrpcService.Services;
 using Demo.DataService;
 using Microsoft.EntityFrameworkCore;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Serilog;
 
 // 允許對內部服務使用明文（非 TLS）HTTP/2
@@ -23,6 +25,14 @@ builder.Services.AddGrpcClient<DataItemService.DataItemServiceClient>(o =>
 
 builder.Services.AddGrpc();
 builder.Services.AddHealthChecks();
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("Demo.GrpcService"))
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()   // 追蹤進來的 gRPC 請求
+        .AddHttpClientInstrumentation()   // 追蹤對 DataService gRPC 的呼叫
+        .AddOtlpExporter(o => o.Endpoint = new Uri(
+            builder.Configuration["Otlp:Endpoint"] ?? "http://localhost:4317")));
 
 var app = builder.Build();
 

@@ -6,6 +6,8 @@ using Demo.AuthService.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -37,6 +39,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 builder.Services.AddHealthChecks();
+
+// ── OpenTelemetry 分散式追蹤 ──────────────────────────────────
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("Demo.AuthService"))
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()   // 追蹤進來的 HTTP 請求（login、refresh 等）
+        .AddHttpClientInstrumentation()   // 追蹤對外的 HTTP 呼叫
+        .AddOtlpExporter(o => o.Endpoint = new Uri(
+            builder.Configuration["Otlp:Endpoint"] ?? "http://localhost:4317")));
 
 var app = builder.Build();
 

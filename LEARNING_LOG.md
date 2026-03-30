@@ -1,5 +1,17 @@
 # 學習日誌
 
+## 2026-03-30
+
+### Phase 7-B 完成：分散式追蹤（OpenTelemetry + Jaeger）
+- 為 Gateway、AuthService、DataService 安裝 OTel 套件（Extensions.Hosting、Instrumentation.AspNetCore、Instrumentation.Http、Exporter.OpenTelemetryProtocol）
+- DataService 額外安裝 `OpenTelemetry.Instrumentation.EntityFrameworkCore`（prerelease，追蹤 SQL 查詢）
+- 各服務 Program.cs 加入 `AddOpenTelemetry().WithTracing(...)` 自動埋點
+- Jaeger 加入 docker-compose.yml（port 16686 UI + 4317 OTLP gRPC）
+- OTLP endpoint 透過設定檔控制：本機用 `http://localhost:4317`，Docker 用 `http://jaeger:4317`
+- 追蹤覆蓋範圍：HTTP 請求（AspNetCore）、對外呼叫（HttpClient）、SQL 查詢（EF Core）
+
+---
+
 ## 2026-03-26
 
 ### Phase 1 完成

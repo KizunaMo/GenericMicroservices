@@ -8,6 +8,8 @@ using Demo.DataService.Core.Repositories;
 using Demo.DataService.Data;
 using Demo.DataService.Features.Items;
 using Demo.DataService.Services;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -43,6 +45,16 @@ builder.Services.AddGrpc();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();
+
+// ── OpenTelemetry 分散式追蹤 ──────────────────────────────────
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("Demo.DataService"))
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()          // 追蹤進來的 HTTP 請求
+        .AddHttpClientInstrumentation()          // 追蹤對外的 HTTP 呼叫
+        .AddEntityFrameworkCoreInstrumentation() // 追蹤 EF Core 的 SQL 查詢
+        .AddOtlpExporter(o => o.Endpoint = new Uri(
+            builder.Configuration["Otlp:Endpoint"] ?? "http://localhost:4317")));
 
 var app = builder.Build();
 
