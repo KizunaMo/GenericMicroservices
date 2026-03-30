@@ -17,45 +17,69 @@
 `ASPNETCORE_ENVIRONMENT` 是一個**作業系統環境變數**，.NET 啟動時會去讀取它，
 用這個值決定「現在是哪個環境」。
 
+### 重要：這個名稱是 .NET 規定的，不是你自己取的
+
+`ASPNETCORE_ENVIRONMENT` 這個變數名稱是 .NET 框架寫死認定的，
+你只能設定它的**值**（Development / Staging / Production）。
+名稱寫錯 .NET 就讀不到，永遠當作沒有設定。
+
+### 配對規則：值怎麼對應到哪個 appsettings 檔案？
+
+這個規則是 .NET 框架內建的，封裝在 `CreateBuilder` 裡面，你的程式碼裡看不到：
+
+```
+appsettings.{ASPNETCORE_ENVIRONMENT 的值}.json
+
+值是 "Development" → 找 appsettings.Development.json
+值是 "Production"  → 找 appsettings.Production.json
+值是 "Staging"     → 找 appsettings.Staging.json
+值是 "MyCustomEnv" → 找 appsettings.MyCustomEnv.json
+```
+
+檔案不存在也沒關係，.NET 不會報錯，只是跳過這一步。
+
 ### 它的值從哪裡來？
 
-**情況 1：本機用 `dotnet run` 啟動**
+**情況 1：本機用 `dotnet run` 或 Rider Run 按鈕**
 
-值來自 `launchSettings.json`，這個檔案放在專案的 `Properties/` 目錄下：
+值來自 `Properties/launchSettings.json`（每個專案目錄下都有）：
 
 ```json
-// Properties/launchSettings.json
+// Demo.DataService/Properties/launchSettings.json
 {
   "profiles": {
-    "Demo.DataService": {
+    "http": {
       "commandName": "Project",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"   // ← 這裡設定
+        "ASPNETCORE_ENVIRONMENT": "Development"   // ← 在這裡設定值
       }
     }
   }
 }
 ```
 
-Rider 或 VS 的「Run」按鈕也是讀這個檔案。所以本機跑永遠是 Development。
+Rider 按 Run 時，會讀這個檔案，把 `environmentVariables` 裡的所有值注入成
+作業系統環境變數，然後再啟動程式。程式啟動後 `CreateBuilder` 就讀得到了。
+
+**`launchSettings.json` 只在本機有效，不會進入 Docker Image。**
 
 **情況 2：Docker Container**
 
-.NET 8 容器的內建預設值是 `Production`。
+.NET 8 容器的內建預設值是 `Production`（沒有 `launchSettings.json` 可讀）。
 也可以在 docker-compose.yml 手動指定：
 
 ```yaml
 data-service:
   environment:
-    - ASPNETCORE_ENVIRONMENT=Production   # 明確指定（其實不寫也一樣）
-    # 如果要跑 Staging：
+    - ASPNETCORE_ENVIRONMENT=Production   # 明確指定（不寫也是 Production）
+    # 如果要跑 Staging 環境：
     # - ASPNETCORE_ENVIRONMENT=Staging
 ```
 
 **情況 3：Terminal 手動設定（臨時）**
 
 ```bash
-# macOS / Linux（只對目前這個 Terminal 視窗有效）
+# macOS / Linux（只對目前這個 Terminal 視窗有效，關掉就消失）
 export ASPNETCORE_ENVIRONMENT=Staging
 dotnet run
 
