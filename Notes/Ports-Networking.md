@@ -69,7 +69,78 @@ options.ListenAnyIP(5128);
 
 ---
 
-## 四、Docker 的 Port 有兩種概念
+## 四、Port 寫法詳解：冒號前後是什麼意思？
+
+```
+ports:
+  - "5010:8080"
+     ^^^^  ^^^^
+     左邊  右邊
+     本機  容器內
+```
+
+**左邊（冒號前）= 你的 Mac 開的門**
+你在 Mac 上打開瀏覽器或 Postman，連的就是這個 Port。
+這個數字可以自己決定，只要沒被佔用就行。
+
+**右邊（冒號後）= 容器內程式監聽的 Port**
+容器裡面的程式（例如 Gateway）實際在監聽哪個 Port。
+這個數字要跟程式的設定一致，不能亂填。
+
+### 用「轉接頭」來理解
+
+```
+你（Postman）
+    ↓
+  5010（Mac 的門）
+    ↓  Docker 把流量轉過去
+  8080（容器內的門，程式在這裡聽）
+    ↓
+  Gateway 程式
+```
+
+你連 `localhost:5010`，Docker 幫你把流量轉到容器內的 `8080`。
+對你來說看到 5010，對容器裡的程式來說看到 8080，中間 Docker 透明轉接。
+
+### 範例對照
+
+| 寫法 | 意思 |
+|------|------|
+| `"5010:8080"` | Mac 的 5010 → 容器內的 8080 |
+| `"5432:5432"` | Mac 的 5432 → 容器內的 5432（兩邊一樣） |
+| `"5433:5432"` | Mac 的 5433 → 容器內的 5432（左邊改掉，右邊不變）|
+| `"15672:15672"` | Mac 的 15672 → 容器內的 15672 |
+
+### 場景：本機 PostgreSQL 和 Docker PostgreSQL 衝突
+
+```
+本機 PostgreSQL（Homebrew）→ 佔用 Mac 的 5432
+Docker PostgreSQL          → 預設也想用 Mac 的 5432 → 衝突！
+```
+
+解法：把 Docker postgres 的左邊（Mac 的門）改成 5433：
+
+```yaml
+postgres:
+  ports:
+    - "5433:5432"   # Mac 的 5433 → 容器內的 5432
+```
+
+容器內的 PostgreSQL 程式完全不知道外面發生了什麼，它依然監聽 5432。
+只有要從 Mac 直接連 Docker 的 postgres 時，才需要用 5433。
+
+**重要**：容器間互連不受影響。
+data-service 容器連 postgres 時，走 Docker 內部網路，直接用 `postgres:5432`，
+不需要經過 Mac，所以 `5433:5432` 的設定對它完全沒影響。
+
+```
+Mac（你）→ localhost:5433 → Docker 轉接 → postgres 容器:5432  ✅
+data-service 容器 → postgres:5432（Docker 內部網路，不走 Mac）✅
+```
+
+---
+
+## 五、Docker 的 Port 有兩種概念
 
 ### 4-1. 容器內部 Port（Container Port）
 
