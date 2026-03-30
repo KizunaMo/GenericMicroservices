@@ -379,6 +379,8 @@ items.proto（合約，兩邊各持有一份）
     │   ItemGrpcService.cs
     │       ↓ 註冊
     │   Program.cs → app.MapGrpcService<ItemGrpcService>()
+    │       ↓ 監聽
+    │   Demo.GrpcService :5300（HTTP/2）
     │
     └─ GrpcServices="Client" → 生成 ItemService.ItemServiceClient
             ↓ 直接 new 出來用
@@ -390,8 +392,33 @@ items.proto（合約，兩邊各持有一份）
 
 ```
 OrderService（下訂單）
-    ↓ gRPC 呼叫（像呼叫本地方法）
-InventoryService（查庫存）
+    ↓ gRPC 呼叫（HTTP/2，內部網路）
+InventoryService（查庫存）:50051
+```
+
+## 本專案 gRPC 呼叫鏈
+
+```
+Client（Postman / Demo.GrpcClient）
+    │
+    │ gRPC GetAllItems（HTTP/2）
+    ▼
+Demo.GrpcService :5300（HTTP/2）
+    │
+    ├── 查 grpc_db（PostgreSQL :5432）
+    │   ItemGrpcService.GetAllItems()
+    │
+    └──（可選）gRPC 呼叫 DataService
+            │
+            │ gRPC（HTTP/2，內部網路）
+            ▼
+       Demo.DataService :5129（HTTP/2，gRPC 專用）
+            │
+            └── 查 demo_db（PostgreSQL :5432）
+
+       注意：DataService :5128 是 REST（HTTP/1.1）
+            DataService :5129 是 gRPC（HTTP/2）
+            兩個 port 共存，由 ConfigureKestrel 分別設定
 ```
 
 ---

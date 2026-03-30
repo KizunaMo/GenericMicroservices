@@ -79,13 +79,21 @@ URL：http://localhost:15672
 ## 四、RabbitMQ 核心概念
 
 ```
-Producer（發送方）
-    ↓ 發布訊息
-Exchange（交換機）← 決定訊息要送到哪個 Queue
-    ↓ 根據規則路由
-Queue（佇列）← 訊息排隊等待
-    ↓ 推送
-Consumer（接收方）
+Producer（發送方）                RabbitMQ :5672（AMQP）
+    │                            ┌────────────────────────────┐
+    │ Publish(ItemCreated)       │                            │
+    └───────────────────────────►│  Exchange（交換機）          │
+                                 │  決定訊息送到哪個 Queue       │
+                                 │         │ 根據規則路由       │
+                                 │         ▼                  │
+                                 │  Queue（佇列）              │
+                                 │  訊息排隊等待                │
+                                 │         │ 推送              │
+                                 └─────────┼──────────────────┘
+                                           │
+                                           ▼
+                                 Consumer（接收方）
+                                 Demo.Worker（訂閱 ItemCreated）
 ```
 
 ### Exchange 類型
@@ -276,17 +284,30 @@ package.json + Git URL       →    .nupkg + NuGet Server
 ## 九、我們的實作架構
 
 ```
-POST /api/items
-    ↓
-DataService
-    ├── 儲存 Item 到 PostgreSQL
-    ├── 發布 ItemCreated 事件 → RabbitMQ（非同步，不等待）
-    └── 立即回傳 201 Created
+Client（Postman）
+    │
+    │ POST /api/items
+    ▼
+Demo.DataService :5128
+    │
+    ├── 儲存 Item → PostgreSQL :5432（demo_db）
+    │
+    ├── Publish(ItemCreated) ──────────────────────────────────────────┐
+    │   MassTransit（非同步，不等待結果）                                  │
+    │                                                                  ▼
+    └── 立即回傳 201 Created                              RabbitMQ :5672（AMQP）
+                                                          Exchange → Queue
+                                                                │
+                                                                │ 推送
+                                                                ▼
+                                                         Demo.Worker（背景服務）
+                                                         ItemCreatedConsumer
+                                                         └── LogInformation
+                                                             （之後可：寄信、推 SignalR、更新快取）
 
-RabbitMQ（localhost:5672）
-    ↓ 推送訊息
-Demo.Worker
-    └── 收到 ItemCreated → 處理（記錄 log / 之後可寄信、推通知）
+管理介面：http://localhost:15672（開發）
+         http://localhost:15672（Docker，ports: 15672:15672）
+         帳密：guest / guest
 ```
 
 ### 事件定義（共用 Contract）

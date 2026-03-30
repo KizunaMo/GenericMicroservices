@@ -62,11 +62,26 @@ rate(http_requests_total[1m])
 3. 把數值畫成圖表
 
 ```
-Prometheus（儲存時序資料）
-      ↑  Grafana 查詢
-Grafana（畫成圖表）
-      ↑  你的瀏覽器
-瀏覽器（http://localhost:3000）
+                Pull 模式架構（Prometheus 主動抓取）
+                ─────────────────────────────────────
+
+  你的服務（暴露 /metrics endpoint）
+  ┌─────────────────────┐
+  │  Demo.Gateway       │ :8080/metrics  ─┐
+  │  Demo.AuthService   │ :8080/metrics  ─┤
+  │  Demo.DataService   │ :5128/metrics  ─┼──► Prometheus :9090
+  │  Demo.RealTime      │ :8080/metrics  ─┤    每 15 秒 GET /metrics 抓一次
+  │  Demo.GrpcService   │ :8080/metrics  ─┘    儲存為時間序列資料
+  └─────────────────────┘
+         （你不需要知道 Prometheus 在哪，只要暴露 /metrics）
+
+  Prometheus :9090 ◄──── PromQL 查詢 ──── Grafana :3000
+                                                  ▲
+                                     瀏覽器 http://localhost:3000
+                                     （帳密：admin / admin）
+
+  對比 OpenTelemetry（Push 模式）：
+  Demo.Gateway → 主動推送 Trace → Jaeger :4317
 ```
 
 **Grafana 能做的事**：

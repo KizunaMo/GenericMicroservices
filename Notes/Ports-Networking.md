@@ -163,21 +163,51 @@ gateway:
 ### 範例：本專案的 Port 全覽
 
 ```
-你的 Mac（本機）
-│
-│  5010 → Gateway 容器（8080）
-│  15672 → RabbitMQ 管理介面（15672）
-│  5400 → TcpService（5400）
-│
-Docker 內部網路（其他服務不對外，只有容器間互連）
-├── auth-service:8080      （Gateway → AuthService）
-├── data-service:5128      （Gateway → DataService REST）
-├── data-service:5129      （GrpcService → DataService gRPC）
-├── realtime-service:8080  （Gateway → RealTime）
-├── grpc-service:8080      （內部，目前未對外）
-├── worker:無 port         （只消費 RabbitMQ，不接受連線）
-├── postgres:5432          （各服務 → DB）
-└── rabbitmq:5672          （各服務 → Message Broker）
+你的 Mac（本機）               Docker 對外 Port     容器內 Port
+─────────────────────────────────────────────────────────────────
+Postman/瀏覽器 → localhost:5010  ──[5010:8080]──►  gateway:8080
+瀏覽器         → localhost:15672 ──[15672:15672]► rabbitmq:15672
+TCP Client     → localhost:5400  ──[5400:5400]──►  tcp-service:5400
+Prometheus UI  → localhost:9090  ──[9090:9090]──►  prometheus:9090
+Grafana UI     → localhost:3000  ──[3000:3000]──►  grafana:3000
+Jaeger UI      → localhost:16686 ──[16686:16686]► jaeger:16686
+
+─────────────────────────────────────────────────────────────────
+Docker 內部網路（容器間互連，本機無法直接連）
+
+gateway:8080
+  ├──► auth-service:8080       （POST /auth/**）
+  ├──► data-service:5128       （GET/POST /api/**，REST）
+  └──► realtime-service:8080   （WebSocket /hub/**）
+
+grpc-service:8080
+  └──► data-service:5129       （gRPC，HTTP/2）
+
+data-service:5128
+  ├──► postgres:5432            （EF Core，demo_db）
+  └──► rabbitmq:5672            （MassTransit，發布事件）
+
+auth-service:8080
+  └──► postgres:5432            （EF Core，auth_db）
+
+grpc-service:8080
+  └──► postgres:5432            （EF Core，grpc_db）
+
+worker（無對外 port）
+  └──► rabbitmq:5672            （MassTransit，消費事件）
+
+prometheus:9090
+  ├──► gateway:8080/metrics     （每 15 秒抓取）
+  ├──► auth-service:8080/metrics
+  ├──► data-service:5128/metrics
+  ├──► realtime-service:8080/metrics
+  └──► grpc-service:8080/metrics
+
+grafana:3000
+  └──► prometheus:9090          （PromQL 查詢）
+
+所有 .NET 服務（各自）
+  └──► jaeger:4317              （OTLP gRPC，Push Trace 資料）
 ```
 
 ---

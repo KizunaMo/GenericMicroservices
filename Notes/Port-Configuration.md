@@ -150,11 +150,14 @@ builder.WebHost.ConfigureKestrel(options =>
 
 | 服務              | Port | 協議     | 用途                   | 設定來源             |
 |-------------------|------|----------|------------------------|----------------------|
-| Demo.Gateway      | 5000 | HTTP/1.1 | 對外入口               | launchSettings.json  |
-| DataService       | 5128 | HTTP/1.1 | REST API + Swagger     | ConfigureKestrel     |
-| DataService       | 5129 | HTTP/2   | gRPC（供內部服務呼叫） | ConfigureKestrel     |
+| Demo.Gateway      | 5000 | HTTP/1.1 | 對外入口（HTTP）        | launchSettings.json  |
+| Demo.Gateway      | 5001 | HTTPS    | 對外入口（加密）        | launchSettings.json  |
+| Demo.AuthService  | 5100 | HTTP/1.1 | JWT 簽發、使用者管理   | launchSettings.json  |
+| Demo.DataService  | 5128 | HTTP/1.1 | REST API + Swagger     | ConfigureKestrel     |
+| Demo.DataService  | 5129 | HTTP/2   | gRPC（供內部服務呼叫） | ConfigureKestrel     |
 | Demo.RealTime     | 5200 | HTTP/1.1 | SignalR Hub            | launchSettings.json  |
 | Demo.GrpcService  | 5300 | HTTP/2   | gRPC                   | launchSettings.json  |
+| Demo.TcpService   | 5400 | TCP Raw  | 自訂協議 / 硬體對接    | launchSettings.json  |
 
 ---
 

@@ -126,15 +126,33 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ## 本專案架構：Gateway 集中驗證
 
 ```
-Client
-  │  Authorization: Bearer <token>
-  ↓
-Demo.Gateway（5000）
-  ├── POST /auth/login  → 不需要 Token，負責簽發 Token
-  ├── GET  /api/**      → 需要 Token（Gateway 驗證後轉發給 DataService）
-  └── /hub/**           → 需要 Token（可選）
-
-DataService（5128）← 內部服務，不再重複驗證
+                          Client（瀏覽器 / Postman）
+                                    |
+              ┌─────────────────────┼─────────────────────┐
+              |                     |                     |
+     POST /auth/login        GET /api/**           GET /hub/**
+     （不帶 Token）          （帶 Access Token）   （帶 Access Token）
+              |                     |                     |
+              v                     v                     v
+        ┌─────────────────────────────────────────────────────┐
+        │              Demo.Gateway  :5000 (HTTP)             │
+        │                           :5001 (HTTPS)             │
+        │                                                     │
+        │  /auth/**  → 不驗 Token，直接轉發給 AuthService        │
+        │  /api/**   → 驗 Token（JwtBearer Middleware）        │
+        │              通過 → 轉發 / 失敗 → 401                 │
+        └───────────────┬─────────────────┬───────────────────┘
+                        |                 |
+                        v                 v
+          ┌─────────────────┐   ┌──────────────────┐
+          │ Demo.AuthService│   │ Demo.DataService  │
+          │    :5100        │   │    :5128          │
+          │                 │   │                   │
+          │ 查 auth_db      │   │ 內部服務，          │
+          │ 驗密碼，簽發      │   │ 不重複驗 Token     │
+          │ Access Token +  │   │                   │
+          │ Refresh Token   │   └──────────────────┘
+          └─────────────────┘
 ```
 
 **為什麼集中在 Gateway 驗證？**
@@ -237,25 +255,55 @@ export Jwt__SecretKey="production-secret-key"
 ```
 Client
   │
-  ├── POST /auth/login ──────────────────────────► Demo.AuthService（:5100）
-  │                                                  查 auth_db + bcrypt 驗證
-  │                                                  → 簽發 Access Token + Refresh Token
+  │ 流程 1：登入取得 Token
+  ├── POST /auth/login { username, password }
+  │              │
+  │              ▼
+  │        Demo.Gateway :5000
+  │        （/auth/** 不驗 Token，直接轉發）
+  │              │
+  │              ▼
+  │        Demo.AuthService :5100
+  │        查 auth_db（:5432）→ bcrypt 驗密碼
+  │        → 產生 Access Token（JWT，1小時）
+  │        → 產生 Refresh Token（隨機字串，存 auth_db，7天）
+  │              │
+  │        回傳 { accessToken, refreshToken }
+  │              │
+  │    ◄─────────┘
   │
-  ├── GET /api/** （帶 Access Token）
-  │        │
-  │        ▼
-  │   Demo.Gateway（:5000）
-  │   驗證 Token（用密鑰比對 Signature）
-  │        │ 通過
-  │        ▼
-  │   Demo.DataService（:5128）
+  │ 流程 2：帶 Token 呼叫受保護 API
+  ├── GET /api/items
+  │   Header: Authorization: Bearer <accessToken>
+  │              │
+  │              ▼
+  │        Demo.Gateway :5000
+  │        JwtBearer Middleware 驗 Token：
+  │          ├── 驗 Signature（密鑰比對）
+  │          ├── 驗 exp（過期時間）
+  │          └── 驗 Issuer / Audience
+  │              │ 通過             │ 失敗
+  │              ▼                  ▼
+  │        轉發給              回 401 Unauthorized
+  │   Demo.DataService :5128       （不轉發）
   │
-  └── POST /auth/refresh （帶 Refresh Token）─────► Demo.AuthService
-                                                     查 DB 確認 Refresh Token 有效
-                                                     → 簽發新的 Access Token
+  │ 流程 3：Access Token 過期，自動換新
+  └── POST /auth/refresh { refreshToken: "..." }
+                 │
+                 ▼
+           Demo.Gateway :5000
+           （/auth/** 不驗 Token）
+                 │
+                 ▼
+           Demo.AuthService :5100
+           查 auth_db 確認 Refresh Token 有效且未撤銷
+           舊 Refresh Token 標記 IsRevoked = true（Rotation）
+           產生新的 Access Token + 新的 Refresh Token
+                 │
+           回傳 { accessToken, refreshToken }
 ```
 
-> Gateway 只驗 Token（無狀態），AuthService 才簽發 Token（有狀態，需要 DB）。
+> Gateway 只驗 Token（無狀態，不查 DB），AuthService 才簽發 Token（有狀態，需要 auth_db）。
 
 ---
 

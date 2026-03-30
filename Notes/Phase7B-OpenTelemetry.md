@@ -28,18 +28,34 @@ TraceId：整條請求鏈的唯一識別（Client 到最後一個服務）
     └── Span：該服務內的子操作（例如 SQL 查詢）
 ```
 
-**例子**：
+**例子**（GET /api/items 的 Trace）：
+
 ```
 TraceId: abc123
-├── Gateway（5ms）      ← 驗 Token + 轉發
-│   └── forward to DataService
-└── DataService（120ms）
-    ├── HTTP handler（5ms）
-    ├── EF Core SQL（100ms）  ← 這裡最慢！
-    └── publish to RabbitMQ（15ms）
-```
+│
+├─[0ms]──────────────────────────────────────────────── 125ms ─┐
+│  Demo.Gateway :5000                                          │
+│  Span: GET /api/items（驗 Token + YARP 轉發）                  │
+│                                                              │
+│  └─[2ms]──────────────────────────────────── 120ms ─┐        │
+│     Demo.DataService :5128                          │        │
+│     Span: GET /api/items（HTTP handler）             │        │
+│                                                     │        │
+│     ├─[2ms]──── 5ms ──┐                             │        │
+│     │  Span: 解析請求  │                             │        │
+│     │                 │                             │        │
+│     ├─[7ms]──────────────────── 100ms ──┐           │        │
+│     │  Span: EF Core SQL                │  ← 最慢！  │        │
+│     │  SELECT * FROM "Items"            │           │        │
+│     │                                   │           │        │
+│     └─[107ms]── 15ms ─┐                 │           │        │
+│        Span: RabbitMQ Publish           │           │        │
+│        ItemCreated event                │           │        │
+└──────────────────────────────────────────────────────────────┘
 
-Jaeger 會用瀑布圖顯示這個結構，讓你一眼看出瓶頸在 SQL。
+Jaeger UI 瀑布圖（http://localhost:16686）會把上面的結構視覺化，
+讓你一眼看出 EF Core SQL（100ms）是瓶頸。
+```
 
 ---
 
@@ -62,10 +78,18 @@ OTel 負責**收集**資料，Jaeger 負責**儲存與顯示**。
 **OTLP（OpenTelemetry Protocol）** 是 OTel 定義的資料傳輸格式。
 
 ```
-你的服務 → [OTLP gRPC, port 4317] → Jaeger
+Demo.Gateway    :5000 ─┐
+Demo.AuthService:5100 ─┤  OTLP gRPC（Push 模式）   ┌──────────────────────┐
+Demo.DataService:5128 ─┼──────────────────────────►│  Jaeger :4317 (OTLP) │
+Demo.RealTime   :5200 ─┤                            │                      │
+Demo.GrpcService:5300 ─┘                            │  Jaeger :16686 (UI)  │
+                                                     └──────────────────────┘
+                                                               ▲
+                                                        瀏覽器 http://localhost:16686
 ```
 
-.NET 服務用 `AddOtlpExporter` 把 Trace 資料送到 Jaeger 的 4317 port。
+.NET 服務用 `AddOtlpExporter` 把 Trace 資料送到 Jaeger 的 4317 port（gRPC 傳輸）。
+Jaeger UI 在 16686 port，用瀏覽器開啟查看瀑布圖。
 
 ---
 
