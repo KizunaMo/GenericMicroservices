@@ -8,7 +8,7 @@ services:
     ports:
       - "5010:8080"      # 本機 5010 → 容器內 8080（5000 被 macOS AirPlay 佔用）
     environment:
-      - Jwt__SecretKey=dev-secret-key-must-be-at-least-32-chars!!
+      - Jwt__SecretKey=${JWT_SECRET_KEY}   # 從 .env 讀取，不寫死在這裡
       - Jwt__Issuer=demo-app
       - Jwt__Audience=demo-app
     depends_on:
@@ -22,10 +22,10 @@ services:
       context: .
       dockerfile: Demo.AuthService/Dockerfile
     environment:
-      - Jwt__SecretKey=dev-secret-key-must-be-at-least-32-chars!!
+      - Jwt__SecretKey=${JWT_SECRET_KEY}   # 從 .env 讀取，不寫死在這裡
       - Jwt__Issuer=demo-app
       - Jwt__Audience=demo-app
-      - ConnectionStrings__AuthDb=Host=postgres;Database=auth_db;Username=postgres;Password=postgres
+      - ConnectionStrings__AuthDb=Host=postgres;Database=auth_db;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy   # 等 postgres 真正 ready 才啟動
@@ -36,7 +36,7 @@ services:
       context: .
       dockerfile: Demo.DataService/Dockerfile
     environment:
-      - ConnectionStrings__DefaultConnection=Host=postgres;Database=demo_db;Username=postgres;Password=postgres
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=demo_db;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
       - RabbitMq__Host=rabbitmq
     depends_on:
       postgres:
@@ -56,7 +56,7 @@ services:
       context: .
       dockerfile: Demo.GrpcService/Dockerfile
     environment:
-      - ConnectionStrings__DefaultConnection=Host=postgres;Database=grpc_db;Username=postgres;Password=postgres
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=grpc_db;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy   # 等 postgres 真正 ready 才啟動
@@ -81,12 +81,12 @@ services:
   postgres:
     image: postgres:16
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql/data   # 資料持久化
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]   # postgres 內建指令，確認 DB 真正 ready
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]   # postgres 內建指令，確認 DB 真正 ready
       interval: 5s    # 每 5 秒檢查一次
       timeout: 5s     # 超過 5 秒沒回應算失敗
       retries: 5      # 連續失敗 5 次才標記為 unhealthy
