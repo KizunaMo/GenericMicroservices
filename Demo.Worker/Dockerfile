@@ -13,8 +13,8 @@ COPY Demo.Contracts/ Demo.Contracts/
 RUN dotnet publish Demo.Worker/Demo.Worker.csproj -c Release -o /app/publish --no-restore
 
 # ── Stage 2：Runtime ──────────────────────────────────────────
-# Worker 不是 Web 服務（沒有 HTTP），用精簡的 runtime image
-FROM mcr.microsoft.com/dotnet/runtime:8.0
+# MassTransit 依賴 Microsoft.AspNetCore.App，需要 aspnet image（非純 runtime）
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
 
 WORKDIR /app
 COPY --from=build /app/publish .
