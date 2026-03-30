@@ -10,6 +10,7 @@ using Demo.DataService.Features.Items;
 using Demo.DataService.Services;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Prometheus;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -59,6 +60,7 @@ builder.Services.AddOpenTelemetry()
 var app = builder.Build();
 
 app.UseMiddleware<ExceptionMiddleware>();
+app.UseHttpMetrics();   // 追蹤每個 HTTP 請求的 method、status、duration
 
 using (var scope = app.Services.CreateScope())
 {
@@ -119,6 +121,7 @@ app.MapDelete("/api/items/{id}", async (int id, IRepository<Item> repo) =>
 });
 
 app.MapGrpcService<DataItemGrpcService>();
-app.MapHealthChecks("/health");   // Docker 用來探測服務是否 ready
+app.MapHealthChecks("/health");            // Docker 用來探測服務是否 ready
+app.UseMetricServer();                     // 暴露 /metrics，讓 Prometheus 來抓
 
 app.Run();

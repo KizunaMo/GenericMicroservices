@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Prometheus;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -71,7 +72,9 @@ using (var scope = app.Services.CreateScope())
 
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapHealthChecks("/health");   // Docker 用來探測服務是否 ready
+app.UseHttpMetrics();                      // 追蹤每個 HTTP 請求的 method、status、duration
+app.MapHealthChecks("/health");            // Docker 用來探測服務是否 ready
+app.UseMetricServer();                     // 暴露 /metrics，讓 Prometheus 來抓
 
 // ── JWT 設定（簽發用）────────────────────────────────────────
 var jwtSection      = builder.Configuration.GetSection("Jwt");

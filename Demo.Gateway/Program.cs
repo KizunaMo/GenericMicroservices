@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Prometheus;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -101,6 +102,7 @@ app.UseCors(corsPolicy);
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseHttpMetrics();   // 追蹤每個 HTTP 請求的 method、status、duration
 
 // ── YARP 路由 ─────────────────────────────────────────────────
 // /auth/** → AuthService（不需 Token，讓使用者能登入）
@@ -109,5 +111,6 @@ app.UseAuthorization();
 // 授權規則在 appsettings.json 的 ReverseProxy Routes 設定
 app.MapReverseProxy().RequireCors(corsPolicy);
 app.MapHealthChecks("/health");
+app.UseMetricServer();   // 暴露 /metrics，讓 Prometheus 來抓
 
 app.Run();

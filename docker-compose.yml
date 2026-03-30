@@ -83,6 +83,24 @@ services:
     ports:
       - "5400:5400"      # TCP Raw，需要對外開放
 
+  # ── Prometheus（指標收集）─────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"      # Prometheus UI（瀏覽器查詢）
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml   # 掛入設定檔
+
+  # ── Grafana（指標視覺化儀表板）────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"      # Grafana UI（預設帳密：admin / admin）
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+
   # ── Jaeger（分散式追蹤可視化）────────────────────────────
   jaeger:
     image: jaegertracing/all-in-one:latest

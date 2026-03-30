@@ -1,6 +1,7 @@
 using Demo.RealTime.Hubs;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Prometheus;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,9 +23,11 @@ builder.Services.AddOpenTelemetry()
 var app = builder.Build();
 
 app.UseStaticFiles();
+app.UseHttpMetrics();   // 追蹤每個 HTTP 請求的 method、status、duration
 
 // CORS 由 Gateway 統一處理，這裡不需要設定
 app.MapHub<ChatHub>("/hub/chat");
 app.MapHealthChecks("/health");
+app.UseMetricServer();   // 暴露 /metrics，讓 Prometheus 來抓
 
 app.Run();

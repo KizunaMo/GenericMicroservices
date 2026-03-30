@@ -4,6 +4,7 @@ using Demo.DataService;
 using Microsoft.EntityFrameworkCore;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Prometheus;
 using Serilog;
 
 // 允許對內部服務使用明文（非 TLS）HTTP/2
@@ -36,9 +37,11 @@ builder.Services.AddOpenTelemetry()
 
 var app = builder.Build();
 
+app.UseHttpMetrics();   // 追蹤每個 HTTP 請求的 method、status、duration
 app.MapGrpcService<GrpcItemService>();
 app.MapGrpcService<DataBridgeGrpcService>();
 app.MapGet("/", () => "gRPC service is running.");
 app.MapHealthChecks("/health");
+app.UseMetricServer();   // 暴露 /metrics，讓 Prometheus 來抓
 
 app.Run();

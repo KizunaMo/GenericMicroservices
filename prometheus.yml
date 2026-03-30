@@ -1,0 +1,23 @@
+global:
+  scrape_interval: 15s   # 每 15 秒去各服務抓一次 /metrics
+
+scrape_configs:
+  - job_name: "gateway"
+    static_configs:
+      - targets: ["gateway:8080"]
+
+  - job_name: "auth-service"
+    static_configs:
+      - targets: ["auth-service:8080"]
+
+  - job_name: "data-service"
+    static_configs:
+      - targets: ["data-service:5128"]   # DataService 自訂 port，不是預設 8080
+
+  - job_name: "realtime-service"
+    static_configs:
+      - targets: ["realtime-service:8080"]
+
+  - job_name: "grpc-service"
+    static_configs:
+      - targets: ["grpc-service:8080"]
