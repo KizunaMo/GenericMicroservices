@@ -185,5 +185,33 @@
 - 同一路由可同時有 `AuthorizationPolicy` + `RateLimiterPolicy`，各自獨立運作
 - HTTP 429 Too Many Requests：Rate Limiting 的標準回應碼
 
+### Phase 6-A 完成（Docker 容器化）
+- 建立 `.dockerignore`（排除 bin/、obj/，避免覆蓋 restore 產生的 obj/）
+- 7 個服務各自建立 Dockerfile（Multi-Stage Build）
+- 所有 Image build 成功，可獨立啟動
+
+| Image | 大小 |
+|-------|------|
+| demo-gateway | 88.8MB |
+| demo-authservice | 90.8MB |
+| demo-dataservice | 94.2MB |
+| demo-realtime | 88.3MB |
+| demo-grpcservice | 91MB |
+| demo-worker | 80.7MB |
+| demo-tcpservice | 77.5MB |
+
+#### 學到的概念（Phase 6-A）
+- Dockerfile：描述如何打包程式的指令腳本
+- Multi-Stage Build：build stage 用 SDK（~900MB），runtime stage 用精簡 Image（~200MB）
+- Layer 快取：先 COPY .csproj + restore，再 COPY 原始碼，讓套件不變時跳過 restore
+- .NET 8 容器預設 Port：8080（不讀 launchSettings.json）
+- Port Mapping：`-p 本機Port:容器Port`，容器內用 8080
+- User Secrets 不存在於 Container，改用 `-e` 環境變數注入
+- 單引號避免 zsh 展開特殊字元（`!!` 問題）
+- `docker run` 佔用 Terminal，需要多個 Terminal 視窗操作
+- `aspnet:8.0`（有 HTTP）vs `runtime:8.0`（無 HTTP，更精簡）
+- 跨專案參考（Demo.Contracts）：需同時 COPY 兩個 .csproj 才能 restore
+- 502 是預期行為：容器內 localhost ≠ 其他容器，Phase 6-B Docker Compose 解決
+
 ### 下一步
-- Phase 6：部署（Docker 容器化）
+- Phase 6-B：Docker Compose（多服務整合，統一網路）

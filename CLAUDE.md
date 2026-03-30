@@ -73,7 +73,7 @@
   - 以 IP 為 partitionKey，超過限制回 HTTP 429
 
 ### Phase 6：部署
-- [ ] 6-A：Docker 容器化（每個服務獨立 Dockerfile）
+- [x] 6-A：Docker 容器化（每個服務獨立 Dockerfile）
 - [ ] 6-B：Docker Compose 多服務整合
 - [ ] 6-C：環境設定（開發 / 測試 / 正式三套設定）
 - [ ] 6-D：健康檢查（Health Checks）
