@@ -213,5 +213,25 @@
 - 跨專案參考（Demo.Contracts）：需同時 COPY 兩個 .csproj 才能 restore
 - 502 是預期行為：容器內 localhost ≠ 其他容器，Phase 6-B Docker Compose 解決
 
+### Phase 6-B 完成（Docker Compose 多服務整合）
+- 建立 `docker-compose.yml`（Solution 根目錄）
+  - 9 個服務：gateway、auth-service、data-service、realtime-service、grpc-service、worker、tcp-service、postgres、rabbitmq
+  - postgres、rabbitmq 用官方 Image，其餘服務用 `build:` 指令
+  - Named Volume `postgres-data`：DB 資料在 Container 重啟後保留
+- 建立 `Demo.Gateway/appsettings.Production.json`
+  - 覆蓋 Clusters Address：localhost → Docker 服務名稱（auth-service:8080、data-service:5128、realtime-service:8080）
+- 修正 DataService Kestrel：`ListenLocalhost` → `ListenAnyIP`
+- 測試通過：POST /auth/login → GET /api/items（帶 Token）全部正常
+
+#### 學到的概念（Phase 6-B）
+- Docker Compose 內部網路：服務之間用服務名稱互連（不是 localhost）
+- `appsettings.Production.json`：Docker 環境自動載入（ASPNETCORE_ENVIRONMENT=Production），覆蓋開發設定
+- `ListenLocalhost` vs `ListenAnyIP`：前者只綁 127.0.0.1，其他容器連不到；後者綁 0.0.0.0，容器間可以連
+- `depends_on`：控制服務啟動順序，但只等 Container 啟動，不等服務 ready（DB 連線失敗需靠重試機制）
+- Named Volume：postgres-data 讓 DB 資料在 `docker compose down` 後仍保留；加 `-v` 才會刪除
+- Docker Compose Image 命名：`專案資料夾名稱-服務名稱`（genericmicroservices-gateway），與手動 build 的名稱不同
+- Port 佔用問題：macOS AirPlay Receiver 佔用 5000，開發時改用 5010 避開
+- 排除舊 Image：`docker compose` 建立自己的 Image，Phase 6-A 的 demo-* Image 不再需要
+
 ### 下一步
-- Phase 6-B：Docker Compose（多服務整合，統一網路）
+- Phase 6-C：環境設定（開發 / 測試 / 正式三套設定）

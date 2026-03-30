@@ -15,4 +15,5 @@ postman/
 
 # Environment / secrets
 *.env
-appsettings.Production.json
+# appsettings.Production.json 只含路由位址（無敏感值），可以 commit
+# 若未來加入敏感值，改用環境變數注入，不要寫進這個檔案

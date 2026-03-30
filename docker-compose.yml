@@ -1,0 +1,92 @@
+services:
+
+  # ── Gateway（唯一對外入口）─────────────────────────────────
+  gateway:
+    build:
+      context: .
+      dockerfile: Demo.Gateway/Dockerfile
+    ports:
+      - "5010:8080"      # 本機 5010 → 容器內 8080（5000 被 macOS AirPlay 佔用）
+    environment:
+      - Jwt__SecretKey=dev-secret-key-must-be-at-least-32-chars!!
+      - Jwt__Issuer=demo-app
+      - Jwt__Audience=demo-app
+    depends_on:
+      - auth-service
+      - data-service
+      - realtime-service
+
+  # ── AuthService ───────────────────────────────────────────
+  auth-service:
+    build:
+      context: .
+      dockerfile: Demo.AuthService/Dockerfile
+    environment:
+      - Jwt__SecretKey=dev-secret-key-must-be-at-least-32-chars!!
+      - Jwt__Issuer=demo-app
+      - Jwt__Audience=demo-app
+      - ConnectionStrings__AuthDb=Host=postgres;Database=auth_db;Username=postgres;Password=postgres
+    depends_on:
+      - postgres
+
+  # ── DataService ───────────────────────────────────────────
+  data-service:
+    build:
+      context: .
+      dockerfile: Demo.DataService/Dockerfile
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=demo_db;Username=postgres;Password=postgres
+      - RabbitMq__Host=rabbitmq
+    depends_on:
+      - postgres
+      - rabbitmq
+
+  # ── RealTime（SignalR）────────────────────────────────────
+  realtime-service:
+    build:
+      context: .
+      dockerfile: Demo.RealTime/Dockerfile
+
+  # ── GrpcService ───────────────────────────────────────────
+  grpc-service:
+    build:
+      context: .
+      dockerfile: Demo.GrpcService/Dockerfile
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=grpc_db;Username=postgres;Password=postgres
+    depends_on:
+      - postgres
+
+  # ── Worker（RabbitMQ Consumer）────────────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: Demo.Worker/Dockerfile
+    depends_on:
+      - rabbitmq
+
+  # ── TcpService ────────────────────────────────────────────
+  tcp-service:
+    build:
+      context: .
+      dockerfile: Demo.TcpService/Dockerfile
+    ports:
+      - "5400:5400"      # TCP Raw，需要對外開放
+
+  # ── PostgreSQL ────────────────────────────────────────────
+  postgres:
+    image: postgres:16
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data   # 資料持久化
+
+  # ── RabbitMQ ─────────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "15672:15672"    # 管理介面（開發用）
+
+volumes:
+  postgres-data:         # 宣告 Named Volume，讓 DB 資料在 Container 重啟後保留

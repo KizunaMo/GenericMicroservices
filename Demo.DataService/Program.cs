@@ -13,8 +13,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.ListenLocalhost(5128, o => o.Protocols = HttpProtocols.Http1);   // REST
-    options.ListenLocalhost(5129, o => o.Protocols = HttpProtocols.Http2);   // gRPC
+    options.ListenAnyIP(5128, o => o.Protocols = HttpProtocols.Http1);   // REST（0.0.0.0，Docker 可連入）
+    options.ListenAnyIP(5129, o => o.Protocols = HttpProtocols.Http2);   // gRPC（0.0.0.0，Docker 可連入）
 });
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -27,7 +27,7 @@ builder.Services.AddMassTransit(x =>
 {
     x.UsingRabbitMq((context, cfg) =>
     {
-        cfg.Host("localhost", "/", h =>
+        cfg.Host(builder.Configuration["RabbitMq:Host"] ?? "localhost", "/", h =>
         {
             h.Username("guest");
             h.Password("guest");
