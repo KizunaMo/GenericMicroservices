@@ -168,5 +168,22 @@
 - Gateway 和 AuthService 的 SecretKey 必須相同，但 User Secrets 是各專案獨立的，需分別 set
 - 正式環境改用環境變數注入（Docker Compose Phase 6 實作）
 
+### Phase 5-D 完成（Rate Limiting）
+- Demo.Gateway 加入 `AddRateLimiter`（.NET 8 內建，不需額外套件）
+- `"login"` policy：每 IP 每 60 秒最多 5 次（/auth/login 專用，防暴力攻擊）
+- `"global"` policy：每 IP 每 1 秒最多 20 次（所有路由，防 DDoS）
+- `appsettings.json`：拆出 `auth-login-route`，各路由加上 `RateLimiterPolicy`
+- 超過限制回傳 HTTP 429 Too Many Requests
+- 測試：連續送 7 次登入請求，第 6、7 次收到 429 確認
+
+#### 學到的概念（Phase 5-D）
+- Rate Limiting 加在 Gateway：所有流量的入口，集中管理，後面服務不需重複設定
+- Fixed Window：固定時間窗格（例如每 60 秒重置一次計數）
+- `partitionKey`：以 IP 為單位計數，不同 IP 各自獨立
+- `QueueLimit = 0`：超過上限直接拒絕，不排隊等待
+- YARP `RateLimiterPolicy`：在 appsettings.json 的 Route 設定，對應 `AddPolicy` 的名稱
+- 同一路由可同時有 `AuthorizationPolicy` + `RateLimiterPolicy`，各自獨立運作
+- HTTP 429 Too Many Requests：Rate Limiting 的標準回應碼
+
 ### 下一步
-- Phase 5-D：Rate Limiting
+- Phase 6：部署（Docker 容器化）

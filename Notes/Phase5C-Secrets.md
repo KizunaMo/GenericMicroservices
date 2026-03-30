@@ -231,6 +231,16 @@ services:
 
 ## 本專案實際操作紀錄
 
+### 涉及的文件
+
+| 檔案路徑 | 新增/修改 | 職責 |
+|----------|-----------|------|
+| `Demo.AuthService/Demo.AuthService.csproj` | 修改（自動）| `dotnet user-secrets init` 在此寫入 `<UserSecretsId>` |
+| `Demo.Gateway/Demo.Gateway.csproj` | 修改（自動）| `dotnet user-secrets init` 在此寫入 `<UserSecretsId>` |
+| `~/.microsoft/usersecrets/<guid>/secrets.json` | 新增（本機）| 真正存放敏感值的地方，在 git 追蹤範圍之外 |
+| `Demo.AuthService/appsettings.json` | 修改 | 敏感欄位（SecretKey、ConnectionStrings）改成空白 |
+| `Demo.Gateway/appsettings.json` | 修改 | 敏感欄位（SecretKey）改成空白 |
+
 ### 步驟一：初始化 User Secrets（每個服務各做一次）
 
 在各個專案目錄下執行：

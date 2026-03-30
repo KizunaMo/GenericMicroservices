@@ -398,3 +398,290 @@ Server 根據 Version 選擇不同的解析邏輯，新舊 Client 都能連線�
 | 服務              | Port | 說明           |
 |-------------------|------|----------------|
 | Demo.TcpService   | 5400 | TCP Socket Raw |
+
+---
+
+## 實作步驟（從零開始重現）
+
+### 涉及的文件
+
+| 檔案路徑 | 新增/修改 | 職責 |
+|----------|-----------|------|
+| `Demo.TcpService/Protocol/MessageCategory.cs` | 新增 | 大分類 enum（Item、System...）|
+| `Demo.TcpService/Protocol/ItemSubType.cs` | 新增 | Item 類別的子類型 enum（Query、Create）|
+| `Demo.TcpService/Protocol/SystemSubType.cs` | 新增 | System 類別的子類型 enum（Heartbeat）|
+| `Demo.TcpService/Protocol/Packet.cs` | 新增 | 封包資料結構（解析後的結果）|
+| `Demo.TcpService/Protocol/IMessageHandler.cs` | 新增 | Handler 的共同介面（Strategy Pattern）|
+| `Demo.TcpService/Protocol/Handlers/ItemQueryHandler.cs` | 新增 | 處理 Item 查詢的 Handler |
+| `Demo.TcpService/Protocol/Handlers/ItemCreateHandler.cs` | 新增 | 處理 Item 新增的 Handler |
+| `Demo.TcpService/Protocol/Handlers/SystemHeartbeatHandler.cs` | 新增 | 處理心跳的 Handler |
+| `Demo.TcpService/TcpServer.cs` | 新增 | TCP 伺服器核心：接收連線、解析封包、分派 Handler |
+| `Demo.TcpService/Program.cs` | 新增 | 啟動 TcpServer，處理 Ctrl+C 優雅關閉 |
+
+---
+
+### 步驟 1：建立專案
+
+```bash
+dotnet new console -n Demo.TcpService
+dotnet sln add Demo.TcpService/Demo.TcpService.csproj
+```
+
+TCP Socket 在 .NET 標準函式庫（`System.Net.Sockets`）裡，不需要安裝額外套件。
+
+---
+
+### 步驟 2：定義封包協議（Protocol 層）
+
+**目的**：先把「資料格式」定義清楚，之後讀寫都依照這個格式
+
+**封包格式**（每筆資料）：
+```
+[ 4 bytes: Category ][ 4 bytes: SubType ][ 4 bytes: Data 長度 ][ N bytes: Data ]
+```
+
+**新增檔案**：`Protocol/MessageCategory.cs`
+
+```csharp
+namespace Demo.TcpService.Protocol;
+
+public enum MessageCategory
+{
+    Item   = 1,   // 數字是二進位傳輸時的識別碼，不可隨意修改（改了舊 Client 就不相容）
+    System = 2
+}
+```
+
+**新增檔案**：`Protocol/ItemSubType.cs`
+
+```csharp
+namespace Demo.TcpService.Protocol;
+
+public enum ItemSubType
+{
+    Query  = 1,
+    Create = 2
+}
+```
+
+**新增檔案**：`Protocol/SystemSubType.cs`
+
+```csharp
+namespace Demo.TcpService.Protocol;
+
+public enum SystemSubType
+{
+    Heartbeat = 1  // Client 定期送心跳，讓 Server 知道連線還活著
+}
+```
+
+**新增檔案**：`Protocol/Packet.cs`
+
+```csharp
+namespace Demo.TcpService.Protocol;
+
+// 封包解析後的結果，Handler 收到的就是這個物件
+public class Packet
+{
+    public MessageCategory Category { get; init; }
+    public int             SubType  { get; init; }
+    public string          Data     { get; init; } = string.Empty;
+}
+```
+
+---
+
+### 步驟 3：定義 Handler 介面（Strategy Pattern）
+
+**目的**：每種訊息類型有獨立的 Handler，新增類型只需要新增 Handler，不改既有程式碼（OCP 原則）
+
+**新增檔案**：`Protocol/IMessageHandler.cs`
+
+```csharp
+namespace Demo.TcpService.Protocol;
+
+public interface IMessageHandler
+{
+    // 輸入：Client 送來的 Data 字串
+    // 輸出：要回傳給 Client 的字串
+    Task<string> HandleAsync(string data);
+}
+```
+
+**新增檔案**：`Protocol/Handlers/SystemHeartbeatHandler.cs`（以此為例）
+
+```csharp
+using Demo.TcpService.Protocol;
+
+namespace Demo.TcpService.Protocol.Handlers;
+
+public class SystemHeartbeatHandler : IMessageHandler
+{
+    public Task<string> HandleAsync(string data)
+    {
+        // 心跳不需要做任何事，只回應 "pong" 讓 Client 知道 Server 還活著
+        return Task.FromResult("pong");
+    }
+}
+```
+
+---
+
+### 步驟 4：建立 TcpServer 核心
+
+**目的**：接受 Client 連線、解析封包、分派到對應 Handler
+
+**新增檔案**：`TcpServer.cs`
+
+```csharp
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using Demo.TcpService.Protocol;
+using Demo.TcpService.Protocol.Handlers;
+
+public class TcpServer
+{
+    private readonly TcpListener _listener;
+
+    // Dictionary 分派器：(Category, SubType) → 對應的 Handler
+    // 查找是 O(1)，不用寫大量 if/else 或 switch
+    private readonly Dictionary<(MessageCategory, int), IMessageHandler> _handlers = new()
+    {
+        { (MessageCategory.Item,   (int)ItemSubType.Query),       new ItemQueryHandler()       },
+        { (MessageCategory.Item,   (int)ItemSubType.Create),      new ItemCreateHandler()      },
+        { (MessageCategory.System, (int)SystemSubType.Heartbeat), new SystemHeartbeatHandler() },
+    };
+
+    public TcpServer(int port)
+    {
+        // IPAddress.Any：接受來自任何 IP 的連線
+        _listener = new TcpListener(IPAddress.Any, port);
+    }
+
+    public async Task StartAsync(CancellationToken ct)
+    {
+        _listener.Start();
+
+        while (!ct.IsCancellationRequested)
+        {
+            var client = await _listener.AcceptTcpClientAsync(ct);
+            // _ = ... 表示「不等待這個 Task」，讓主迴圈繼續接受下一個連線
+            // 每個 Client 各自在獨立的 Task 裡處理，互不阻塞
+            _ = HandleClientAsync(client, ct);
+        }
+    }
+
+    private async Task HandleClientAsync(TcpClient client, CancellationToken ct)
+    {
+        await using var stream = client.GetStream();
+
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                // 讀封包（固定順序：Category → SubType → Length → Data）
+                var categoryBuffer = new byte[4];
+                if (await ReadExactAsync(stream, categoryBuffer, ct) == 0) break;  // 0 = 連線關閉
+                var category = (MessageCategory)BitConverter.ToInt32(categoryBuffer, 0);
+
+                var subTypeBuffer = new byte[4];
+                await ReadExactAsync(stream, subTypeBuffer, ct);
+                var subType = BitConverter.ToInt32(subTypeBuffer, 0);
+
+                var lengthBuffer = new byte[4];
+                await ReadExactAsync(stream, lengthBuffer, ct);
+                var dataLength = BitConverter.ToInt32(lengthBuffer, 0);
+
+                var dataBuffer = new byte[dataLength];
+                if (dataLength > 0)
+                    await ReadExactAsync(stream, dataBuffer, ct);
+                var data = Encoding.UTF8.GetString(dataBuffer);
+
+                // 分派到對應 Handler
+                var key = (category, subType);
+                if (_handlers.TryGetValue(key, out var handler))
+                {
+                    var response = await handler.HandleAsync(data);
+                    await SendMessageAsync(stream, response, ct);
+                }
+                else
+                {
+                    await SendMessageAsync(stream, $"[Error] Unknown Category={category}, SubType={subType}", ct);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or OperationCanceledException)
+        {
+            // Client 斷線或服務停止，正常情況，不需要特別處理
+        }
+        finally
+        {
+            client.Close();
+        }
+    }
+
+    // ReadExactAsync：解決黏包問題的核心
+    // ReadAsync 不保證一次讀完指定長度，必須循環讀到剛好讀完為止
+    private static async Task<int> ReadExactAsync(NetworkStream stream, byte[] buffer, CancellationToken ct)
+    {
+        var totalRead = 0;
+        while (totalRead < buffer.Length)
+        {
+            var read = await stream.ReadAsync(buffer, totalRead, buffer.Length - totalRead, ct);
+            if (read == 0) return 0;  // 連線已關閉
+            totalRead += read;
+        }
+        return totalRead;
+    }
+
+    private static async Task SendMessageAsync(NetworkStream stream, string message, CancellationToken ct)
+    {
+        var data        = Encoding.UTF8.GetBytes(message);
+        var lengthBytes = BitConverter.GetBytes(data.Length);
+        // 先送長度（4 bytes），再送資料（N bytes）
+        // Client 知道要讀多少 bytes，解決黏包問題
+        await stream.WriteAsync(lengthBytes, ct);
+        await stream.WriteAsync(data, ct);
+    }
+
+    public void Stop() => _listener.Stop();
+}
+```
+
+---
+
+### 步驟 5：Program.cs 啟動服務
+
+**新增/修改檔案**：`Demo.TcpService/Program.cs`
+
+```csharp
+using Demo.TcpService;
+
+var server = new TcpServer(5400);
+
+// CancellationTokenSource：讓程式能優雅關閉（Ctrl+C 時通知所有 Task 停止）
+using var cts = new CancellationTokenSource();
+
+// Console.CancelKeyPress：捕捉 Ctrl+C，設定取消而非直接強制結束
+Console.CancelKeyPress += (_, e) =>
+{
+    e.Cancel = true;          // 不讓 OS 直接 kill 程式
+    cts.Cancel();             // 通知所有 Task 停止
+};
+
+await server.StartAsync(cts.Token);
+server.Stop();
+```
+
+---
+
+### 驗證方式
+
+1. 啟動 Demo.TcpService
+2. 啟動 Demo.TcpTestConsole（測試 Client）
+3. 觀察雙方 console 的輸出，確認：
+   - 連線建立：`[Server] Client connected:`
+   - 收發訊息：`[Server] Received → Category: Item, SubType: 1`
+   - 未知類型：收到 `[Error] Unknown Category=...`
+   - 按 Ctrl+C：`[Server] Client disconnected:` 後服務正常結束（不是強制終止）

@@ -362,3 +362,328 @@ Refresh Token → 必須存 DB，原因：
    → AuthService 查 DB 確認 Refresh Token 有效且未過期
    → 回傳新的 Access Token
 ```
+
+---
+
+## 實作步驟（從零開始重現）
+
+### 涉及的文件
+
+**Demo.AuthService（新服務）**：
+
+| 檔案路徑 | 新增/修改 | 職責 |
+|----------|-----------|------|
+| `Demo.AuthService.csproj` | 新增 | 安裝 JWT、bcrypt、EF Core 套件 |
+| `Data/User.cs` | 新增 | 使用者資料模型 |
+| `Data/RefreshToken.cs` | 新增 | Refresh Token 資料模型 |
+| `Data/AuthDbContext.cs` | 新增 | auth_db 的 EF Core 橋接器 |
+| `Migrations/` | 新增（自動產生）| DB Schema 版本記錄 |
+| `Program.cs` | 新增 | 所有端點（login、refresh、logout、users CRUD）|
+| `appsettings.json` | 新增 | JWT 設定（Issuer、Audience）、DB 連線字串留空 |
+| `Properties/launchSettings.json` | 新增 | Port 5100 |
+
+**Demo.Gateway（修改既有）**：
+
+| 檔案路徑 | 新增/修改 | 職責 |
+|----------|-----------|------|
+| `Demo.Gateway.csproj` | 修改 | 安裝 JWT 驗證套件 |
+| `Program.cs` | 修改 | 加入 JWT 驗證設定 |
+| `appsettings.json` | 修改 | 加入 JWT 設定區段、auth 路由、各路由授權 Policy |
+
+---
+
+### 步驟 1：建立 Demo.AuthService 專案
+
+```bash
+dotnet new web -n Demo.AuthService
+dotnet sln add Demo.AuthService/Demo.AuthService.csproj
+```
+
+安裝套件：
+```bash
+cd Demo.AuthService
+dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer --version 8.0.0
+dotnet add package BCrypt.Net-Next
+dotnet add package Microsoft.EntityFrameworkCore --version 8.0.0
+dotnet add package Npgsql.EntityFrameworkCore.PostgreSQL --version 8.0.0
+dotnet add package Microsoft.EntityFrameworkCore.Design --version 8.0.0
+```
+
+---
+
+### 步驟 2：建立資料模型
+
+**新增檔案**：`Demo.AuthService/Data/User.cs`
+
+```csharp
+namespace Demo.AuthService.Data;
+
+public class User
+{
+    public int Id { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public string PasswordHash { get; set; } = string.Empty;  // bcrypt 雜湊，不存明文
+    public string Role { get; set; } = "user";
+}
+```
+
+**新增檔案**：`Demo.AuthService/Data/RefreshToken.cs`
+
+```csharp
+namespace Demo.AuthService.Data;
+
+public class RefreshToken
+{
+    public int Id { get; set; }
+    public string Token { get; set; } = string.Empty;        // 隨機字串（非 JWT）
+    public int UserId { get; set; }                           // 外鍵，指向哪個 User
+    public User User { get; set; } = null!;                  // Navigation Property，讓 EF Core 能 JOIN
+    public DateTime ExpiresAt { get; set; }
+    public bool IsRevoked { get; set; } = false;             // 撤銷後設為 true
+}
+```
+
+**為什麼 RefreshToken 要存 DB**：Access Token 是無狀態的（JWT），但 Refresh Token 需要能主動撤銷（登出、刪帳號、改密碼），所以必須存 DB 才能查詢和標記撤銷。
+
+---
+
+### 步驟 3：建立 DbContext 並執行 Migration
+
+**新增檔案**：`Demo.AuthService/Data/AuthDbContext.cs`
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+
+namespace Demo.AuthService.Data;
+
+public class AuthDbContext : DbContext
+{
+    public AuthDbContext(DbContextOptions<AuthDbContext> options) : base(options) { }
+
+    public DbSet<User> Users { get; set; }
+    public DbSet<RefreshToken> RefreshTokens { get; set; }
+}
+```
+
+建立 Migration（在 Demo.AuthService 目錄執行）：
+
+```bash
+dotnet ef migrations add InitialCreate
+dotnet ef database update
+```
+
+---
+
+### 步驟 4：實作 AuthService Program.cs
+
+**修改檔案**：`Demo.AuthService/Program.cs`
+
+**4-A：輔助方法（產生 Token）**
+
+```csharp
+// 產生 Access Token（JWT）
+string GenerateAccessToken(User user)
+{
+    var claims = new[]
+    {
+        new Claim(ClaimTypes.Name,           user.Username),
+        new Claim(ClaimTypes.Role,           user.Role),
+        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+    };
+
+    var token = new JwtSecurityToken(
+        issuer:             issuer,
+        audience:           audience,
+        claims:             claims,
+        expires:            DateTime.UtcNow.AddHours(1),     // Access Token 有效期 1 小時
+        signingCredentials: new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256)
+    );
+
+    return new JwtSecurityTokenHandler().WriteToken(token);  // 序列化成字串
+}
+
+// 產生 Refresh Token（隨機字串，不是 JWT）
+string GenerateRefreshToken() =>
+    Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));  // 64 bytes 的隨機數
+```
+
+**4-B：POST /auth/login**
+
+```csharp
+app.MapPost("/auth/login", async (LoginRequest req, AuthDbContext db) =>
+{
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Username == req.Username);
+
+    // BCrypt.Verify：重新雜湊輸入的密碼，比對是否和存的 Hash 一致
+    if (user is null || !BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash))
+        return Results.Unauthorized();  // 使用者不存在或密碼錯誤，統一回 401（不說哪個錯）
+
+    var refreshToken = new RefreshToken
+    {
+        Token     = GenerateRefreshToken(),
+        UserId    = user.Id,
+        ExpiresAt = DateTime.UtcNow.AddDays(7),  // Refresh Token 有效期 7 天
+    };
+    db.RefreshTokens.Add(refreshToken);
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new
+    {
+        accessToken  = GenerateAccessToken(user),
+        refreshToken = refreshToken.Token,
+    });
+});
+```
+
+**4-C：POST /auth/refresh（Refresh Token Rotation）**
+
+```csharp
+app.MapPost("/auth/refresh", async (RefreshRequest req, AuthDbContext db) =>
+{
+    var stored = await db.RefreshTokens
+        .Include(r => r.User)                                  // JOIN User 資料
+        .FirstOrDefaultAsync(r => r.Token == req.RefreshToken);
+
+    if (stored is null || stored.IsRevoked || stored.ExpiresAt < DateTime.UtcNow)
+        return Results.Unauthorized();
+
+    // Rotation：舊 Token 撤銷，同時發新 Token
+    // 若舊 Token 被偷，攻擊者使用時 Server 發現已撤銷（被正常使用者用過了），可以告警
+    stored.IsRevoked = true;
+
+    var newRefreshToken = new RefreshToken
+    {
+        Token     = GenerateRefreshToken(),
+        UserId    = stored.UserId,
+        ExpiresAt = DateTime.UtcNow.AddDays(7),
+    };
+    db.RefreshTokens.Add(newRefreshToken);
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new
+    {
+        accessToken  = GenerateAccessToken(stored.User),
+        refreshToken = newRefreshToken.Token,
+    });
+});
+```
+
+---
+
+### 步驟 5：Gateway 加入 JWT 驗證
+
+**目的**：Gateway 負責驗 Token（不簽發），通過才轉發請求
+
+**安裝套件**：
+```bash
+cd Demo.Gateway
+dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer --version 8.0.0
+```
+
+**修改檔案**：`Demo.Gateway/Program.cs`
+
+```csharp
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+
+var builder = WebApplication.CreateBuilder(args);
+
+var jwtSection = builder.Configuration.GetSection("Jwt");
+var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSection["SecretKey"]!));
+
+// 加入 JWT 驗證（只驗，不簽發）
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer           = true,
+            ValidateAudience         = true,
+            ValidateLifetime         = true,             // 驗過期時間
+            ValidateIssuerSigningKey = true,
+            ValidIssuer              = jwtSection["Issuer"],
+            ValidAudience            = jwtSection["Audience"],
+            IssuerSigningKey         = signingKey,       // 和 AuthService 使用相同密鑰
+        };
+    });
+builder.Services.AddAuthorization();
+
+// ...
+
+app.UseAuthentication();   // 解析並驗證 Token，成功後填充 HttpContext.User
+app.UseAuthorization();    // 根據 Policy 決定是否允許通過
+```
+
+---
+
+### 步驟 6：在 YARP 路由設定授權
+
+**目的**：指定哪些路由需要 Token，哪些不需要
+
+**修改檔案**：`Demo.Gateway/appsettings.json`
+
+```json
+"Routes": {
+  "auth-service-route": {
+    "ClusterId": "auth-service-cluster",
+    "Match": { "Path": "/auth/{**remainder}" }
+    // 不加 AuthorizationPolicy → 不需要 Token（讓使用者能登入）
+  },
+  "data-service-route": {
+    "ClusterId": "data-service-cluster",
+    "AuthorizationPolicy": "Default",    // 需要有效 Token，否則 401
+    "Match": { "Path": "/api/{**remainder}" }
+  }
+},
+"Clusters": {
+  "auth-service-cluster": {
+    "Destinations": {
+      "destination1": { "Address": "http://localhost:5100" }
+    }
+  }
+  // ...
+}
+```
+
+---
+
+### 步驟 7：AuthService 自己也加 JWT 驗證
+
+**目的**：保護使用者管理端點（/auth/users），不讓未登入的人操作
+
+這是**兩層防線**：Gateway 擋外部未驗證請求，AuthService 自己再驗一次確保管理端點安全。
+
+在 AuthService 的 `Program.cs`，加入和 Gateway 一樣的 JWT 驗證設定，然後在端點加：
+
+```csharp
+app.MapPost("/auth/users", async (...) =>
+{
+    // 建立使用者的邏輯
+}).RequireAuthorization();  // ← 需要有效 Token 才能呼叫
+```
+
+---
+
+### 驗證方式
+
+```bash
+# 1. 登入取得 Token
+POST http://localhost:5000/auth/login
+Body: { "username": "admin", "password": "password" }
+→ 預期回傳 accessToken 和 refreshToken
+
+# 2. 帶 Token 呼叫受保護的 API
+GET http://localhost:5000/api/items
+Header: Authorization: Bearer <accessToken>
+→ 預期正常回傳資料
+
+# 3. 不帶 Token 呼叫受保護的 API
+GET http://localhost:5000/api/items
+→ 預期回傳 401 Unauthorized
+
+# 4. Access Token 過期後，用 Refresh Token 換新
+POST http://localhost:5000/auth/refresh
+Body: { "refreshToken": "<refreshToken>" }
+→ 預期回傳新的 accessToken
+```

@@ -513,3 +513,226 @@ GrpcService → grpc_db（自己的）
 | Demo.Gateway | 5000 | HTTP/1.1 | 對外入口 |
 
 > HTTP/2 設定細節見 `Notes/gRPC-HTTP2-Setup.md`
+
+---
+
+## 實作步驟（從零開始重現）
+
+### 涉及的文件
+
+**Demo.GrpcService（新服務，有自己的 grpc_db）**：
+
+| 檔案路徑 | 新增/修改 | 職責 |
+|----------|-----------|------|
+| `Demo.GrpcService.csproj` | 新增 | 安裝 gRPC 套件、宣告 .proto 檔案和角色（Server/Client）|
+| `Protos/items.proto` | 新增 | 定義 gRPC 服務合約（方法、請求/回應的資料格式）|
+| `Data/Item.cs` | 新增 | GrpcService 自己的 Item 資料模型（對應 grpc_db）|
+| `Data/AppDbContext.cs` | 新增 | grpc_db 的 EF Core 橋接器 |
+| `Migrations/` | 新增（自動產生）| DB Schema 版本記錄 |
+| `Services/GrpcItemService.cs` | 新增 | 實作 ItemService 的 gRPC 方法 |
+| `Program.cs` | 新增 | 設定 HTTP/2、註冊服務、掛載 gRPC Handler |
+
+**（可選）GrpcService 呼叫 DataService**：
+
+| 檔案路徑 | 新增/修改 | 職責 |
+|----------|-----------|------|
+| `Protos/dataservice_items.proto` | 新增 | DataService 暴露給 GrpcService 的 gRPC 合約 |
+| `Services/DataBridgeGrpcService.cs` | 新增 | 呼叫 DataService gRPC，橋接資料 |
+| `Demo.DataService/Protos/dataservice_items.proto` | 新增 | DataService 側的 proto（Server 角色）|
+| `Demo.DataService/Services/DataItemGrpcService.cs` | 新增 | DataService 的 gRPC 實作 |
+
+---
+
+### 步驟 1：建立專案並安裝套件
+
+```bash
+dotnet new web -n Demo.GrpcService
+dotnet sln add Demo.GrpcService/Demo.GrpcService.csproj
+cd Demo.GrpcService
+dotnet add package Grpc.AspNetCore
+dotnet add package Microsoft.EntityFrameworkCore --version 8.0.0
+dotnet add package Npgsql.EntityFrameworkCore.PostgreSQL --version 8.0.0
+dotnet add package Microsoft.EntityFrameworkCore.Design --version 8.0.0
+```
+
+---
+
+### 步驟 2：在 .csproj 宣告 .proto 檔案
+
+**目的**：告訴 build 工具「這些 .proto 要自動生成 C# 程式碼」，並指定角色
+
+**修改檔案**：`Demo.GrpcService/Demo.GrpcService.csproj`
+
+```xml
+<ItemGroup>
+  <!-- Server：生成 ItemService.ItemServiceBase（你繼承並實作）-->
+  <Protobuf Include="Protos\items.proto" GrpcServices="Server" />
+
+  <!-- Client：生成 DataItemService.DataItemServiceClient（你直接呼叫）-->
+  <Protobuf Include="Protos\dataservice_items.proto" GrpcServices="Client" />
+</ItemGroup>
+```
+
+**兩個角色的差異**：
+- `GrpcServices="Server"`：生成抽象 base class，你繼承後覆寫（override）方法填入邏輯
+- `GrpcServices="Client"`：生成 Client class，你直接 new 出來呼叫遠端方法
+
+---
+
+### 步驟 3：撰寫 .proto 定義檔
+
+**目的**：定義這個服務提供哪些 RPC 方法，以及資料的格式
+
+**新增檔案**：`Demo.GrpcService/Protos/items.proto`
+
+```protobuf
+syntax = "proto3";                            // Protocol Buffers 版本
+
+option csharp_namespace = "Demo.GrpcService"; // 生成的 C# 程式碼放在這個 namespace
+
+package items;                                // protobuf 的 package（避免命名衝突）
+
+// 服務定義：這個 service 提供的所有 RPC 方法
+service ItemService {
+  rpc GetItem     (GetItemRequest)     returns (ItemResponse);      // 取得單一 Item
+  rpc GetAllItems (GetAllItemsRequest) returns (ItemListResponse);  // 取得所有 Item
+}
+
+// 請求/回應的資料格式（= 後面的數字是欄位編號，二進位傳輸用，不可修改）
+message GetItemRequest {
+  int32 id = 1;
+}
+
+message GetAllItemsRequest {
+  // 空的訊息也需要定義，gRPC 不允許省略
+}
+
+message ItemResponse {
+  int32  id          = 1;
+  string name        = 2;
+  string description = 3;
+}
+
+message ItemListResponse {
+  repeated ItemResponse items = 1;  // repeated = 陣列/列表
+}
+```
+
+---
+
+### 步驟 4：實作 gRPC Service
+
+**目的**：繼承 .proto 自動生成的 base class，填入實際的查詢邏輯
+
+**新增檔案**：`Demo.GrpcService/Services/GrpcItemService.cs`
+
+```csharp
+using Demo.GrpcService.Data;
+using Grpc.Core;
+using Microsoft.EntityFrameworkCore;
+
+namespace Demo.GrpcService.Services;
+
+// 繼承自動生成的 ItemService.ItemServiceBase（不是你寫的，是 build 時從 .proto 生成的）
+// 命名衝突注意：.proto 的 service 名稱是 ItemService，生成的 class 也叫 ItemService
+// 所以你的實作類別要取不同名稱，例如 GrpcItemService
+public class GrpcItemService : ItemService.ItemServiceBase
+{
+    private readonly AppDbContext _db;
+
+    public GrpcItemService(AppDbContext db)
+    {
+        _db = db;
+    }
+
+    // override：覆寫 base class 的抽象方法，填入你的邏輯
+    public override async Task<ItemResponse> GetItem(GetItemRequest request, ServerCallContext context)
+    {
+        var item = await _db.Items.FindAsync(request.Id);
+
+        if (item is null)
+            // gRPC 沒有 HTTP 404，用 RpcException + StatusCode.NotFound 代替
+            throw new RpcException(new Status(StatusCode.NotFound, $"Item {request.Id} not found"));
+
+        return new ItemResponse { Id = item.Id, Name = item.Name, Description = item.Description };
+    }
+
+    public override async Task<ItemListResponse> GetAllItems(GetAllItemsRequest request, ServerCallContext context)
+    {
+        var items = await _db.Items.ToListAsync();
+
+        var response = new ItemListResponse();
+        // response.Items 是 proto 的 repeated 欄位，對應到 C# 的 RepeatedField<T>
+        // 不能直接賦值，需要用 AddRange
+        response.Items.AddRange(items.Select(i => new ItemResponse
+        {
+            Id          = i.Id,
+            Name        = i.Name,
+            Description = i.Description,
+        }));
+
+        return response;
+    }
+}
+```
+
+---
+
+### 步驟 5：設定 Program.cs
+
+**目的**：讓服務在 HTTP/2（gRPC 必須）上啟動，掛載 gRPC Handler
+
+**修改檔案**：`Demo.GrpcService/Program.cs`
+
+```csharp
+using Demo.GrpcService.Data;
+using Demo.GrpcService.Services;
+using Microsoft.EntityFrameworkCore;
+
+// 允許對內部服務使用「明文 HTTP/2」（不加密，開發用）
+// gRPC 必須走 HTTP/2，但開發環境不需要 TLS
+// 不加這行，Client 端呼叫時會報錯：PROTOCOL_ERROR
+AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
+
+var builder = WebApplication.CreateBuilder(args);
+
+// DB 設定
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddGrpc();   // 啟用 gRPC 功能
+
+var app = builder.Build();
+
+// 執行 Migration，確保資料表存在
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
+
+app.MapGrpcService<GrpcItemService>();  // 掛載 gRPC Handler（對應 proto 的 service ItemService）
+app.MapGet("/", () => "gRPC service is running.");  // 提供一個 HTTP 端點確認服務活著
+
+app.Run();
+```
+
+**Port 設定**：gRPC 需要 HTTP/2，在 `Properties/launchSettings.json` 設定：
+
+```json
+"applicationUrl": "http://localhost:5300"
+```
+
+開發環境用 HTTP（不是 HTTPS），因為 HTTP/2 明文（h2c）比較簡單，gRPC 正式環境才會用 HTTPS。
+
+---
+
+### 驗證方式
+
+1. 啟動 Demo.GrpcService（port 5300）
+2. 用 Postman 測試 gRPC：
+   - New → gRPC
+   - Server URL：`localhost:5300`
+   - 匯入 `Protos/items.proto`
+   - 選擇 `ItemService/GetAllItems` → Invoke
+   - 預期回傳 GrpcItems 的資料

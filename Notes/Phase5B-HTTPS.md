@@ -200,3 +200,91 @@ Docker + Nginx/Caddy 的部署方案通常內建自動取得和續期 Let's Encr
 | 對外服務（正式環境）   | 一定要 HTTPS         |
 | 服務間內部溝通         | HTTP 可接受（同內網）|
 | 傳輸敏感資料（Token、密碼）| 一定要 HTTPS    |
+
+---
+
+## 實作步驟（從零開始重現）
+
+### 涉及的文件
+
+| 檔案路徑 | 新增/修改 | 職責 |
+|----------|-----------|------|
+| 系統 Keychain（macOS）| 自動修改 | 信任開發用自簽憑證 |
+| `Demo.Gateway/Properties/launchSettings.json` | 修改 | 讓 Gateway 同時監聽 HTTP 和 HTTPS |
+
+只有這兩個地方需要改，因為 .NET SDK 已內建自簽憑證管理，ASP.NET Core 啟動時自動讀取憑證。
+
+---
+
+### 步驟 1：產生並信任開發用憑證
+
+**目的**：讓瀏覽器不再對 localhost HTTPS 顯示「連線不安全」警告
+
+```bash
+dotnet dev-certs https --trust
+```
+
+這個指令做了三件事：
+1. 產生本機開發用的自簽憑證（`.pfx` 格式）
+2. 安裝到作業系統的憑證信任清單（macOS：Keychain，Windows：Certificate Store）
+3. 之後 `https://localhost:xxxx` 瀏覽器視為受信任的連線
+
+確認憑證狀態（是否已信任）：
+```bash
+dotnet dev-certs https --check
+```
+
+如果憑證損壞或需要重置：
+```bash
+dotnet dev-certs https --clean  # 刪除現有憑證
+dotnet dev-certs https --trust  # 重新產生並信任
+```
+
+---
+
+### 步驟 2：讓 Gateway 同時監聽 HTTP 和 HTTPS
+
+**目的**：Gateway 對外同時提供 HTTP :5000 和 HTTPS :5001
+
+**修改檔案**：`Demo.Gateway/Properties/launchSettings.json`
+
+```json
+{
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "https://localhost:5001;http://localhost:5000",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
+```
+
+**關鍵改動**：`applicationUrl` 用分號分隔兩個位址，ASP.NET Core 啟動時會同時監聽兩個 Port。
+
+**為什麼保留 HTTP :5000**：開發時用 Postman 或 curl 測試，不需要憑證，更方便。正式環境可以拿掉 HTTP，只保留 HTTPS。
+
+---
+
+### 驗證方式
+
+1. 啟動 Gateway，console 應顯示：
+```
+Now listening on: https://localhost:5001
+Now listening on: http://localhost:5000
+```
+
+2. 用 Postman 或 curl 測試 HTTPS 端點：
+```bash
+curl https://localhost:5001/auth/login \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"password"}'
+```
+→ 預期正常回傳 Token（不應出現憑證錯誤）
+
+3. 用瀏覽器開啟 `https://localhost:5001`（若有前端），確認沒有「連線不安全」警告

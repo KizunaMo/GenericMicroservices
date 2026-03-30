@@ -166,3 +166,169 @@ appsettings.json 裡的位址也會從 localhost 換成 Docker 服務名稱：
 **核心原則**：程式碼裡不寫死 port，由環境決定。同一份程式碼在開發、測試、正式環境都能跑，只改設定不改程式碼。
 
 ---
+
+## 實作步驟（從零開始重現）
+
+### 涉及的文件
+
+| 檔案路徑 | 新增/修改 | 職責 |
+|----------|-----------|------|
+| `Demo.Gateway.csproj` | 修改 | 安裝 YARP 套件 |
+| `Program.cs` | 新增 | 載入 YARP 設定、啟動 Reverse Proxy |
+| `appsettings.json` | 修改 | 定義路由規則（Routes + Clusters）|
+| `Properties/launchSettings.json` | 修改 | 設定 Gateway 監聽的 Port |
+
+---
+
+### 步驟 1：建立新的 ASP.NET Core 空白專案
+
+**目的**：Gateway 是獨立的可執行程式，需要自己的 .csproj
+
+```bash
+# 在 Solution 根目錄執行
+dotnet new web -n Demo.Gateway
+dotnet sln add Demo.Gateway/Demo.Gateway.csproj
+```
+
+`dotnet new web`：建立最精簡的 ASP.NET Core 專案（沒有 Controller、沒有 Swagger），適合作為 Gateway。
+
+---
+
+### 步驟 2：安裝 YARP 套件
+
+**目的**：引入 Microsoft 官方的 Reverse Proxy 功能
+
+```bash
+cd Demo.Gateway
+dotnet add package Yarp.ReverseProxy
+```
+
+**YARP（Yet Another Reverse Proxy）**：Microsoft 開源的 Reverse Proxy 套件，直接整合進 ASP.NET Core Middleware 管道，設定全部用 JSON，不需要寫路由程式碼。
+
+---
+
+### 步驟 3：設定 Program.cs
+
+**目的**：載入 YARP 並啟動 Reverse Proxy
+
+**修改檔案**：`Demo.Gateway/Program.cs`
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+
+// 載入 YARP，從 appsettings.json 的 "ReverseProxy" 區段讀取路由設定
+builder.Services.AddReverseProxy()
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+
+var app = builder.Build();
+
+// 掛載 YARP Middleware，啟動 Reverse Proxy
+// 所有進來的請求都會經過 YARP 的路由比對和轉發
+app.MapReverseProxy();
+
+app.Run();
+```
+
+**為什麼只有這幾行**：YARP 幾乎把所有工作都封裝好了。`LoadFromConfig` 讀設定、`MapReverseProxy` 啟動，其他都在 `appsettings.json` 定義。
+
+---
+
+### 步驟 4：設定路由規則（appsettings.json）
+
+**目的**：告訴 YARP「哪些請求要轉發到哪個服務」
+
+**修改檔案**：`Demo.Gateway/appsettings.json`
+
+```json
+{
+  "ReverseProxy": {
+    "Routes": {
+      "data-service-route": {
+        "ClusterId": "data-service-cluster",   // 指向下面哪個 Cluster
+        "Match": {
+          "Path": "/api/{**remainder}"          // {**remainder} = 任意後綴，例如 /api/items/1
+        }
+      }
+    },
+    "Clusters": {
+      "data-service-cluster": {
+        "Destinations": {
+          "destination1": {
+            "Address": "http://localhost:5128"  // 轉發目標的完整位址
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**關鍵概念**：
+- **Routes**：「什麼請求要處理」，定義 Path Pattern
+- **Clusters**：「要轉發到哪裡」，定義目標位址
+- **ClusterId**：連結 Route 和 Cluster 的橋梁
+- **`{**remainder}`**：YARP 的 catch-all pattern，匹配任意後綴
+
+---
+
+### 步驟 5：設定 Port
+
+**目的**：讓 Gateway 在 5000 Port 監聽
+
+**修改檔案**：`Demo.Gateway/Properties/launchSettings.json`
+
+```json
+{
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "applicationUrl": "http://localhost:5000",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
+```
+
+---
+
+### 加入 CORS（若有前端需求）
+
+**目的**：瀏覽器的 Same-Origin Policy 會阻擋跨 domain 的 API 請求，Gateway 需要集中設定 CORS
+
+**修改檔案**：`Demo.Gateway/Program.cs`，補充：
+
+```csharp
+const string corsPolicy = "GatewayPolicy";
+
+// 允許前端網址（瀏覽器才會送 Origin header，Postman 不會）
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(corsPolicy, policy =>
+    {
+        policy.WithOrigins("http://localhost:3000")  // 前端的 origin
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();                   // 允許帶 Cookie / JWT
+    });
+});
+
+// ...
+app.UseCors(corsPolicy);
+
+// YARP 路由必須加 .RequireCors()，單獨 UseCors() 不夠
+// 因為 YARP 的路由在 ASP.NET Core 標準路由之外，需要明確套用
+app.MapReverseProxy().RequireCors(corsPolicy);
+```
+
+**為什麼 YARP 要用 RequireCors**：`UseCors()` 只對標準路由有效。YARP 自己管理路由，需要明確呼叫 `RequireCors()` 才能套用 CORS Policy。
+
+---
+
+### 驗證方式
+
+1. 同時啟動 `Demo.DataService`（port 5128）和 `Demo.Gateway`（port 5000）
+2. 用 Postman 呼叫 `http://localhost:5000/api/items`（走 Gateway）
+3. 預期回傳和直接呼叫 `http://localhost:5128/api/items` 相同的結果
+4. 只有 Gateway 可以從外部連，DataService 直接對外是設計上不建議的

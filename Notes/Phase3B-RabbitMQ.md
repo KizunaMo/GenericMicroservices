@@ -342,3 +342,203 @@ public class ItemCreatedConsumer : IConsumer<ItemCreated>
 | SSH | 22 | 遠端登入 |
 
 **記憶技巧**：不需要全背，知道「PostgreSQL 是 5432」、「RabbitMQ AMQP 是 5672」就夠，其他查文件。
+
+---
+
+## 實作步驟（從零開始重現）
+
+### 涉及的文件
+
+| 檔案路徑 | 新增/修改 | 職責 |
+|----------|-----------|------|
+| `Demo.Contracts/ItemCreated.cs` | 新增 | 共用事件定義，Publisher 和 Consumer 都參考這個 |
+| `Demo.DataService/Program.cs` | 修改 | 加入 MassTransit 設定，新增 Item 時發布事件 |
+| `Demo.Worker/Program.cs` | 新增 | Worker 服務入口，連接 RabbitMQ、註冊 Consumer |
+| `Demo.Worker/Consumers/ItemCreatedConsumer.cs` | 新增 | 處理 ItemCreated 事件的邏輯 |
+
+**為什麼要有 Demo.Contracts 這個獨立專案**：Publisher（DataService）和 Consumer（Worker）都需要知道 `ItemCreated` 的資料結構。把它放在獨立的 Class Library，兩個專案都能參考，避免複製貼上造成不一致。
+
+---
+
+### 步驟 1：安裝 RabbitMQ（macOS）
+
+```bash
+brew install rabbitmq
+brew services start rabbitmq
+```
+
+確認服務啟動：開啟 `http://localhost:15672`，用 `guest / guest` 登入，應該看到管理介面。
+
+---
+
+### 步驟 2：建立 Demo.Contracts 共用事件定義
+
+```bash
+# 在 Solution 根目錄
+dotnet new classlib -n Demo.Contracts
+dotnet sln add Demo.Contracts/Demo.Contracts.csproj
+```
+
+**新增檔案**：`Demo.Contracts/ItemCreated.cs`
+
+```csharp
+namespace Demo.Contracts;
+
+// record：不可變的資料物件，適合作為事件/訊息的資料結構
+// MassTransit 會把這個物件序列化成 JSON 放進 RabbitMQ 的訊息 Body
+public record ItemCreated
+{
+    public int Id { get; init; }
+    public string Name { get; init; } = string.Empty;
+    public DateTime CreatedAt { get; init; }
+}
+```
+
+---
+
+### 步驟 3：DataService 發布事件
+
+**目的**：新增 Item 後，通知其他服務「有新 Item 了」，不等待其他服務處理完就回傳
+
+**在 Demo.DataService 安裝 MassTransit**：
+```bash
+cd Demo.DataService
+dotnet add package MassTransit.RabbitMQ
+dotnet add reference ../Demo.Contracts/Demo.Contracts.csproj
+```
+
+**修改檔案**：`Demo.DataService/Program.cs`
+
+```csharp
+// 加入 MassTransit 設定（放在 builder.Services 區段）
+builder.Services.AddMassTransit(x =>
+{
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        cfg.Host("localhost", "/", h =>
+        {
+            h.Username("guest");   // RabbitMQ 預設帳號
+            h.Password("guest");   // 正式環境要改，用 Secrets 管理
+        });
+    });
+    // 這裡不加 Consumer，DataService 只負責發布（Publisher 角色）
+});
+```
+
+修改 `POST /api/items` 端點，新增發布邏輯：
+
+```csharp
+// 端點注入 IPublishEndpoint（MassTransit 提供的發布介面）
+app.MapPost("/api/items", async (Item item, IRepository<Item> repo, IPublishEndpoint publisher) =>
+{
+    await repo.AddAsync(item);
+    await repo.SaveAsync();
+
+    // 發布 Domain Event（非同步，不等待 Consumer 處理完）
+    // 這一行完成後立刻繼續，不管 Worker 有沒有收到
+    await publisher.Publish(new ItemCreated
+    {
+        Id        = item.Id,
+        Name      = item.Name,
+        CreatedAt = DateTime.UtcNow
+    });
+
+    return Results.Created($"/api/items/{item.Id}", ApiResponse<Item>.Ok(item));
+});
+```
+
+**為什麼用 `IPublishEndpoint` 而非直接連 RabbitMQ**：MassTransit 的抽象層，你只說「發布一個事件」，它決定要送到哪個 Exchange、用哪個序列化格式。換成其他 Message Broker（Kafka、Azure Service Bus）只需要改設定，不改程式碼。
+
+---
+
+### 步驟 4：建立 Demo.Worker 訂閱服務
+
+**目的**：獨立的背景服務，持續監聽 RabbitMQ 的 Queue，收到事件後處理
+
+```bash
+dotnet new worker -n Demo.Worker           # Worker Service 專案範本（背景服務）
+dotnet sln add Demo.Worker/Demo.Worker.csproj
+cd Demo.Worker
+dotnet add package MassTransit.RabbitMQ
+dotnet add reference ../Demo.Contracts/Demo.Contracts.csproj
+```
+
+**新增檔案**：`Demo.Worker/Consumers/ItemCreatedConsumer.cs`
+
+```csharp
+using Demo.Contracts;
+using MassTransit;
+
+namespace Demo.Worker.Consumers;
+
+// IConsumer<T>：MassTransit 的 Consumer 介面
+// T = ItemCreated → 這個 Consumer 只處理 ItemCreated 事件
+public class ItemCreatedConsumer : IConsumer<ItemCreated>
+{
+    private readonly ILogger<ItemCreatedConsumer> _logger;
+
+    public ItemCreatedConsumer(ILogger<ItemCreatedConsumer> logger)
+    {
+        _logger = logger;
+    }
+
+    public async Task Consume(ConsumeContext<ItemCreated> context)
+    {
+        var item = context.Message;  // 從 context 取得事件資料
+
+        _logger.LogInformation(
+            "[Worker] 收到 ItemCreated 事件 → Id: {Id}, Name: {Name}",
+            item.Id, item.Name);
+
+        // 未來可以在這裡擴充：
+        // - 寄通知 Email
+        // - 推 SignalR 即時通知
+        // - 更新 Redis 快取
+        // - 寫稽核日誌
+
+        await Task.CompletedTask;
+    }
+}
+```
+
+**修改檔案**：`Demo.Worker/Program.cs`
+
+```csharp
+using Demo.Worker.Consumers;
+using MassTransit;
+
+var builder = Host.CreateApplicationBuilder(args);
+
+builder.Services.AddMassTransit(x =>
+{
+    // 告訴 MassTransit：這個服務有一個 Consumer
+    x.AddConsumer<ItemCreatedConsumer>();
+
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        cfg.Host("localhost", "/", h =>
+        {
+            h.Username("guest");
+            h.Password("guest");
+        });
+
+        // 自動為所有已註冊的 Consumer 建立對應的 Queue
+        // MassTransit 根據 Consumer 類別名稱和事件類型自動命名 Queue
+        cfg.ConfigureEndpoints(context);
+    });
+});
+
+var host = builder.Build();
+host.Run();  // Worker Service 持續執行，不像 WebAPI 一樣回應請求
+```
+
+---
+
+### 驗證方式
+
+1. 啟動 RabbitMQ：`brew services start rabbitmq`
+2. 啟動 Demo.DataService
+3. 啟動 Demo.Worker
+4. 用 Postman 呼叫 `POST http://localhost:5128/api/items`，Body 填入 Item 資料
+5. 觀察 Demo.Worker 的 console，應該看到 `[Worker] 收到 ItemCreated 事件 → ...`
+6. 開啟 `http://localhost:15672`，在 Queues 頁面確認有自動建立的 Queue
