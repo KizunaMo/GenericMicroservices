@@ -99,7 +99,12 @@
   - `AddOtlpExporter` 送資料到 Jaeger（port 4317）
   - Jaeger UI：http://localhost:16686（docker-compose 啟動）
   - appsettings.json 的 `Otlp:Endpoint` 本機用 localhost，Docker 用 jaeger
-- [ ] 7-C：指標監控（Prometheus + Grafana）
+- [x] 7-C：指標監控（Prometheus + Grafana）
+  - 所有 HTTP 服務安裝 prometheus-net.AspNetCore
+  - `UseMetricServer()` 暴露 `/metrics`，`UseHttpMetrics()` 追蹤 HTTP 請求
+  - GrpcService Kestrel 改為 Http1AndHttp2（修復 Prometheus 400）
+  - prometheus.yml 設定 scrape targets
+  - Prometheus UI：http://localhost:9090，Grafana UI：http://localhost:3000
 
 ---
 

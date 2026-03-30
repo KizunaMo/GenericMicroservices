@@ -2,6 +2,16 @@
 
 ## 2026-03-30
 
+### Phase 7-C 完成：指標監控（Prometheus + Grafana）
+- 所有 HTTP 服務安裝 prometheus-net.AspNetCore，加入 UseMetricServer() + UseHttpMetrics()
+- GrpcService Kestrel 從 Http2 改為 Http1AndHttp2，修復 Prometheus scrape 400 錯誤
+- prometheus.yml 設定 5 個服務的 scrape targets（15 秒抓一次）
+- docker-compose.yml 加入 Prometheus（9090）和 Grafana（3000）
+- Grafana 連接 Prometheus 資料來源，可在 Drilldown → Metrics 瀏覽所有指標
+- 待深入學習：PromQL 查詢語言、建立自訂儀表板、設定告警
+
+---
+
 ### Phase 7-B 完成：分散式追蹤（OpenTelemetry + Jaeger）
 - 為 Gateway、AuthService、DataService 安裝 OTel 套件（Extensions.Hosting、Instrumentation.AspNetCore、Instrumentation.Http、Exporter.OpenTelemetryProtocol）
 - DataService 額外安裝 `OpenTelemetry.Instrumentation.EntityFrameworkCore`（prerelease，追蹤 SQL 查詢）
