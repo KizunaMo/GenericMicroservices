@@ -233,5 +233,18 @@
 - Port 佔用問題：macOS AirPlay Receiver 佔用 5000，開發時改用 5010 避開
 - 排除舊 Image：`docker compose` 建立自己的 Image，Phase 6-A 的 demo-* Image 不再需要
 
+### Phase 6-C 完成（環境設定）
+- DataService：Swagger 改為只在 Development 開啟（`app.Environment.IsDevelopment()`）
+- DataService / Worker：`RabbitMq:Host` 補進 appsettings.json（開發預設 localhost）
+- 建立 Notes/Phase6C-EnvironmentConfig.md
+
+#### 學到的概念（Phase 6-C）
+- `ASPNETCORE_ENVIRONMENT`：決定載入哪個 appsettings.{Environment}.json
+- 載入順序：appsettings.json → appsettings.{Env}.json → 環境變數（後者覆蓋前者）
+- Docker 預設 Production，本機 dotnet run 預設 Development（來自 launchSettings.json）
+- `app.Environment.IsDevelopment()`：判斷目前環境，用來做條件式功能開關
+- 正式環境關閉 Swagger：避免暴露 API 結構給攻擊者
+- 設定值應在 appsettings.json，不靠程式碼 `?? fallback` 來補
+
 ### 下一步
-- Phase 6-C：環境設定（開發 / 測試 / 正式三套設定）
+- Phase 6-D：健康檢查（Health Checks）

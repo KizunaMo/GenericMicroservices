@@ -49,8 +49,12 @@ using (var scope = app.Services.CreateScope())
     db.Database.EnsureCreated();
 }
 
-app.UseSwagger();
-app.UseSwaggerUI();
+// Swagger 只在 Development 開啟，正式環境不暴露 API 文件
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 // GET all items
 app.MapGet("/api/items", async (IRepository<Item> repo) =>
