@@ -8,8 +8,12 @@ using Demo.DataService.Core.Repositories;
 using Demo.DataService.Data;
 using Demo.DataService.Features.Items;
 using Demo.DataService.Services;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, config) =>
+    config.ReadFrom.Configuration(context.Configuration));
 
 builder.WebHost.ConfigureKestrel(options =>
 {

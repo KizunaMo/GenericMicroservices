@@ -6,8 +6,13 @@ using Demo.AuthService.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ── Serilog：從 appsettings.json 的 Serilog 區塊讀取設定 ──────
+builder.Host.UseSerilog((context, config) =>
+    config.ReadFrom.Configuration(context.Configuration));
 
 // ── DB（auth_db）────────────────────────────────────────────
 builder.Services.AddDbContext<AuthDbContext>(options =>

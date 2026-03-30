@@ -2,11 +2,15 @@ using Demo.GrpcService.Data;
 using Demo.GrpcService.Services;
 using Demo.DataService;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 
 // 允許對內部服務使用明文（非 TLS）HTTP/2
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, config) =>
+    config.ReadFrom.Configuration(context.Configuration));
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));

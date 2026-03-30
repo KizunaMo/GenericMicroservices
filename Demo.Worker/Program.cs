@@ -1,7 +1,11 @@
 using Demo.Worker.Consumers;
 using MassTransit;
+using Serilog;
 
 var builder = Host.CreateApplicationBuilder(args);
+
+builder.Services.AddSerilog((services, config) =>
+    config.ReadFrom.Configuration(builder.Configuration));
 
 builder.Services.AddMassTransit(x =>
 {
