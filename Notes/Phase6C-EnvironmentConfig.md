@@ -10,30 +10,197 @@
 | Staging | `Staging` | 測試伺服器，像正式但用測試資料 |
 | Production | `Production` | 正式上線，Docker Compose，Swagger 關閉，環境變數注入 secrets |
 
-### .NET 的環境設定載入機制
+---
+
+## ASPNETCORE_ENVIRONMENT 是什麼？怎麼設定？
+
+`ASPNETCORE_ENVIRONMENT` 是一個**作業系統環境變數**，.NET 啟動時會去讀取它，
+用這個值決定「現在是哪個環境」。
+
+### 它的值從哪裡來？
+
+**情況 1：本機用 `dotnet run` 啟動**
+
+值來自 `launchSettings.json`，這個檔案放在專案的 `Properties/` 目錄下：
+
+```json
+// Properties/launchSettings.json
+{
+  "profiles": {
+    "Demo.DataService": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"   // ← 這裡設定
+      }
+    }
+  }
+}
+```
+
+Rider 或 VS 的「Run」按鈕也是讀這個檔案。所以本機跑永遠是 Development。
+
+**情況 2：Docker Container**
+
+.NET 8 容器的內建預設值是 `Production`。
+也可以在 docker-compose.yml 手動指定：
+
+```yaml
+data-service:
+  environment:
+    - ASPNETCORE_ENVIRONMENT=Production   # 明確指定（其實不寫也一樣）
+    # 如果要跑 Staging：
+    # - ASPNETCORE_ENVIRONMENT=Staging
+```
+
+**情況 3：Terminal 手動設定（臨時）**
+
+```bash
+# macOS / Linux（只對目前這個 Terminal 視窗有效）
+export ASPNETCORE_ENVIRONMENT=Staging
+dotnet run
+
+# Windows
+set ASPNETCORE_ENVIRONMENT=Staging
+dotnet run
+```
+
+---
+
+## .NET 怎麼知道要讀哪個設定檔？
+
+`WebApplication.CreateBuilder(args)` 這行程式碼呼叫時，.NET 在背後自動做了這些事：
 
 ```
-appsettings.json                    ← 所有環境都載入（基底）
-appsettings.{Environment}.json      ← 只有對應環境載入，同 Key 覆蓋基底
-環境變數                             ← 優先權最高，覆蓋所有設定檔
-User Secrets                        ← 只在 Development 有效
+步驟 1：讀取 ASPNETCORE_ENVIRONMENT 的值
+        → 例如讀到 "Production"
+
+步驟 2：載入 appsettings.json（基底，永遠載入）
+
+步驟 3：根據環境名稱，載入 appsettings.{環境}.json
+        → ASPNETCORE_ENVIRONMENT=Production
+        → 自動載入 appsettings.Production.json
+        → 同名的 Key 覆蓋掉 appsettings.json 的值
+
+步驟 4：載入環境變數（ASPNETCORE_ 開頭或 __ 分隔的）
+        → 優先權最高，覆蓋上面所有
+
+步驟 5：載入 User Secrets（只有 Development 環境）
+        → 只在開發機有效
 ```
 
-範例：`ASPNETCORE_ENVIRONMENT=Production` 時
+這些全部由 `CreateBuilder` 自動完成，**不需要寫任何程式碼**。
+
+### 覆蓋規則：同名 Key 後者蓋前者
 
 ```
-載入 appsettings.json
-載入 appsettings.Production.json（覆蓋 appsettings.json 裡相同的 Key）
-套用環境變數（覆蓋上面所有）
+appsettings.json 有：
+  "RabbitMq": { "Host": "localhost" }
+
+appsettings.Production.json 有：
+  "RabbitMq": { "Host": "rabbitmq" }
+
+最終結果（Production 環境）：
+  "RabbitMq": { "Host": "rabbitmq" }   ← Production.json 贏了
+
+appsettings.Production.json 沒有的 Key：
+  "Logging": { ... }                   ← 繼續用 appsettings.json 的值
 ```
 
-### 各環境的 ASPNETCORE_ENVIRONMENT 值從哪來？
+---
 
-| 環境 | 來源 |
-|------|------|
-| 本機 dotnet run | `launchSettings.json` 的 `ASPNETCORE_ENVIRONMENT` |
-| Docker Container | `.NET 8 預設 Production`（除非 docker-compose.yml 有設定） |
-| 手動設定 | `export ASPNETCORE_ENVIRONMENT=Staging` |
+## 完整流程圖
+
+```
+啟動 dotnet run / docker 容器
+         ↓
+讀取 ASPNETCORE_ENVIRONMENT
+         ↓
+    ┌────┴────────────────────────┐
+    │  Development                │  Production
+    │  (本機 launchSettings.json) │  (Docker 預設)
+    └────────────┬────────────────┘
+                 ↓
+         載入 appsettings.json
+                 ↓
+         載入 appsettings.{環境}.json
+         （Development / Production / Staging）
+                 ↓
+         套用環境變數（最高優先）
+                 ↓
+    ┌────┴────────────────────────┐
+    │  Development only           │
+    │  載入 User Secrets          │
+    └─────────────────────────────┘
+                 ↓
+         程式開始執行
+```
+
+---
+
+## 實際對應本專案
+
+### 本機啟動 DataService（Development）
+
+```
+ASPNETCORE_ENVIRONMENT = "Development"（來自 launchSettings.json）
+
+載入 appsettings.json：
+  ConnectionStrings.DefaultConnection = "Host=localhost;..."
+  RabbitMq.Host = "localhost"
+
+載入 appsettings.Development.json：
+  只有 Logging，沒有新增/覆蓋任何設定
+
+載入 User Secrets：
+  （DataService 目前沒有 User Secrets，跳過）
+
+最終結果：
+  DB → localhost
+  RabbitMQ → localhost
+  Swagger → 開啟（IsDevelopment() = true）
+```
+
+### Docker 啟動 DataService（Production）
+
+```
+ASPNETCORE_ENVIRONMENT = "Production"（.NET 8 容器預設）
+
+載入 appsettings.json：
+  ConnectionStrings.DefaultConnection = "Host=localhost;..."  ← 先載入
+  RabbitMq.Host = "localhost"                                ← 先載入
+
+appsettings.Production.json：
+  DataService 沒有這個檔案，跳過
+
+載入環境變數（來自 docker-compose.yml）：
+  ConnectionStrings__DefaultConnection = "Host=postgres;..."  ← 覆蓋
+  RabbitMq__Host = "rabbitmq"                                ← 覆蓋
+
+最終結果：
+  DB → postgres（Docker 服務名稱）
+  RabbitMQ → rabbitmq（Docker 服務名稱）
+  Swagger → 關閉（IsDevelopment() = false）
+```
+
+### Docker 啟動 Gateway（Production）
+
+```
+載入 appsettings.json：
+  YARP Clusters → localhost:5100、localhost:5128...  ← 先載入
+
+載入 appsettings.Production.json：
+  YARP Clusters → auth-service:8080、data-service:5128...  ← 覆蓋
+
+最終結果：
+  路由目標 → Docker 服務名稱
+```
+
+Gateway 用 Production.json 而不是環境變數的原因：
+YARP 路由設定是巢狀 JSON，環境變數要這樣寫才能覆蓋：
+```
+ReverseProxy__Clusters__data-service-cluster__Destinations__destination1__Address=http://...
+```
+太長太醜，用 Production.json 直接覆蓋整個區塊清楚得多。
 
 ---
 
