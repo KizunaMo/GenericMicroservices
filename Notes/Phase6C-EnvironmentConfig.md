@@ -377,3 +377,47 @@ Docker 環境下 Swagger 被關閉，就算嘗試連也會 404。
 | `IsProduction()` | 判斷目前是否為 Production 環境 |
 | `IsStaging()` | 判斷目前是否為 Staging 環境 |
 | `app.Environment` | 取得目前執行環境資訊的物件，在 Minimal API 的 `app.Build()` 之後可使用 |
+
+
+# Phase 6-C：環境設定與啟動邏輯全景圖
+此圖描述了從你按下「執行」到 IsDevelopment() 判定完成的完整路徑：
+
+```text
+[ 啟動來源 ]                [ 環境變數設定階段 ]                    [ .NET 內部讀取與覆蓋階段 ]
+                                     |                                       |
+(A) Rider / IDE  ------>  讀取 launchSettings.json  ---------------->  ASPNETCORE_ENVIRONMENT = "Development"
+    按鈕執行                          |                                       |
+                                     v                                       v
+(B) Docker Compose ---->  讀取 docker-compose.yml ---------------->  ASPNETCORE_ENVIRONMENT = "Production"
+    容器啟動                          |                                       |
+                                     v                                       v
+(C) Terminal 手動 ------>  執行 export / set 指令 ---------------->  ASPNETCORE_ENVIRONMENT = "Staging"
+    指令啟動                                                                  |
+_____________________________________________________________________________|
+                                     |
+                                     v
+                       [ WebApplication.CreateBuilder(args) ]
+                                     |
+    [ 第一層 ] 載入底層設定 ----------->  讀取 appsettings.json (最基礎，例如 localhost)
+                                     |
+    [ 第二層 ] 根據變數載入 ---------->  讀取 appsettings.{Environment}.json
+             (Override)              (例如：Production 版會把 DB 改成 "postgres")
+                                     |
+    [ 第三層 ] 強力覆蓋層 ----------->  讀取系統環境變數 (Environment Variables)
+             (Max Priority)          (例如：RabbitMq__Host="rabbitmq" 覆蓋所有 JSON)
+_____________________________________________________________________________|
+                                     |
+                                     v
+                       [ app.Environment.IsDevelopment() ]
+                                     |
+               < 是不是 "Development" ? > ------------------┐
+                     |                                     |
+                [ 是 (TRUE) ]                         [ 否 (FALSE) ]
+                     |                                     |
+          1. 載入 User Secrets                  1. 隱藏詳細錯誤頁面 (Security)
+          2. 開啟 Swagger UI                    2. 關閉 Swagger UI (404)
+          3. 顯示詳細錯誤頁面                    3. 使用正式版 Logging 等級
+                     |                                     |
+                     └-------------------┬-----------------┘
+                                         v
+                            [ 程式正式運行 (App Running) ]
