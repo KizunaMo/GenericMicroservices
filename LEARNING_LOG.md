@@ -259,5 +259,19 @@
 - `MapHealthChecks("/health")`：暴露 HTTP 探測端點，回傳 200 Healthy / 503 Unhealthy
 - Health Check 是監控基礎設施（Prometheus / K8s liveness probe）的標準介面
 
+### Phase 7-A 完成（結構化日誌 Serilog）
+- 所有服務安裝 `Serilog.AspNetCore`
+- Program.cs 加入 `UseSerilog`（WebApp）或 `AddSerilog`（Worker）
+- appsettings.json 加入 Serilog 區塊（MinimumLevel、WriteTo Console、Enrich）
+- 建立 Notes/Phase7A-Serilog.md
+
+#### 學到的概念（Phase 7-A）
+- 結構化日誌 vs 純文字：`{Username}` 是獨立欄位，不只是字串替換，可查詢
+- Sink：日誌輸出目的地（Console、File、Elasticsearch...），可同時多個
+- `MinimumLevel.Override`：針對特定命名空間降低等級，避免框架 log 淹沒業務 log
+- `outputTemplate`：Console 輸出格式，`{Level:u3}` = 等級縮寫大寫 3 字
+- Worker 用 `AddSerilog`，WebApp 用 `UseSerilog`（API 不同）
+- `{}` 佔位符是結構化的關鍵，字串串接無法做到
+
 ### 下一步
-- Phase 7-A：結構化日誌（Serilog）
+- Phase 7-B：分散式追蹤（OpenTelemetry）

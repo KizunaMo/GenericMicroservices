@@ -74,12 +74,25 @@
 
 ### Phase 6：部署
 - [x] 6-A：Docker 容器化（每個服務獨立 Dockerfile）
-- [ ] 6-B：Docker Compose 多服務整合
-- [ ] 6-C：環境設定（開發 / 測試 / 正式三套設定）
-- [ ] 6-D：健康檢查（Health Checks）
+- [x] 6-B：Docker Compose 多服務整合
+  - docker-compose.yml（9 個服務 + postgres + rabbitmq + named volume）
+  - appsettings.Production.json（Gateway YARP 路由改用 Docker 服務名稱）
+  - DataService Kestrel：ListenLocalhost → ListenAnyIP
+  - 敏感值移到 .env 檔案（.gitignore 排除，.env.example 作為範本）
+- [x] 6-C：環境設定（開發 / 測試 / 正式三套設定）
+  - Swagger 只在 Development 開啟
+  - RabbitMq:Host 從設定檔讀取
+  - ASPNETCORE_ENVIRONMENT 機制與 appsettings.{Env}.json 載入順序
+- [x] 6-D：健康檢查（Health Checks）
+  - 各服務加入 `/health` 端點（MapHealthChecks）
+  - postgres healthcheck（pg_isready）
+  - depends_on condition: service_healthy
 
 ### Phase 7：可觀測性（Observability）
-- [ ] 7-A：結構化日誌（Serilog）
+- [x] 7-A：結構化日誌（Serilog）
+  - 所有服務安裝 Serilog.AspNetCore
+  - 從 appsettings.json 讀取設定（MinimumLevel、WriteTo、Enrich）
+  - 格式：`[HH:mm:ss LVL] Message`
 - [ ] 7-B：分散式追蹤（OpenTelemetry）
 - [ ] 7-C：指標監控（Prometheus + Grafana）
 
