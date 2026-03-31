@@ -30,6 +30,23 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience            = jwtSection["Audience"],
             IssuerSigningKey         = signingKey,
         };
+
+        // SignalR WebSocket JWT：WebSocket 升級請求無法設定 Authorization header，
+        // 標準做法是把 token 放在 ?access_token= query string。
+        // 只對 /hub/** 路由套用，避免影響其他端點的驗證行為。
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    context.HttpContext.Request.Path.StartsWithSegments("/hub"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
