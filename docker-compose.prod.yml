@@ -1,0 +1,63 @@
+# 正式環境覆蓋設定
+# 用法：docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# 特性：對外只開放 Gateway，其他服務不暴露 Port
+
+services:
+
+  gateway:
+    ports:
+      - "80:8080"        # HTTP（通常由前面的 Nginx / Load Balancer 處理，這裡示意）
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+    restart: unless-stopped
+
+  auth-service:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+    restart: unless-stopped
+
+  data-service:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+    restart: unless-stopped
+
+  realtime-service:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+    restart: unless-stopped
+
+  grpc-service:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+    restart: unless-stopped
+
+  worker:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+    restart: unless-stopped
+
+  tcp-service:
+    ports:
+      - "5400:5400"      # TCP Raw，正式環境視需求決定是否對外
+    restart: unless-stopped
+
+  prometheus:
+    # Port 不對外，正式環境透過 Grafana 存取即可
+    restart: unless-stopped
+
+  grafana:
+    ports:
+      - "3000:3000"      # 正式環境可改用反向代理保護，這裡先保留
+    restart: unless-stopped
+
+  jaeger:
+    # Port 不對外，正式環境 Jaeger UI 應限內部存取
+    restart: unless-stopped
+
+  postgres:
+    # Port 不對外，正式環境絕對不開放 DB port
+    restart: unless-stopped
+
+  rabbitmq:
+    # Port 不對外
+    restart: unless-stopped

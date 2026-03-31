@@ -5,13 +5,11 @@ services:
     build:
       context: .
       dockerfile: Demo.Gateway/Dockerfile
-    ports:
-      - "5010:8080"      # 本機 5010 → 容器內 8080（5000 被 macOS AirPlay 佔用）
     environment:
-      - Jwt__SecretKey=${JWT_SECRET_KEY}   # 從 .env 讀取，不寫死在這裡
+      - Jwt__SecretKey=${JWT_SECRET_KEY}
       - Jwt__Issuer=demo-app
       - Jwt__Audience=demo-app
-      - Otlp__Endpoint=http://jaeger:4317  # Docker 內部指向 jaeger 容器
+      - Otlp__Endpoint=http://jaeger:4317
     depends_on:
       - auth-service
       - data-service
@@ -23,14 +21,14 @@ services:
       context: .
       dockerfile: Demo.AuthService/Dockerfile
     environment:
-      - Jwt__SecretKey=${JWT_SECRET_KEY}   # 從 .env 讀取，不寫死在這裡
+      - Jwt__SecretKey=${JWT_SECRET_KEY}
       - Jwt__Issuer=demo-app
       - Jwt__Audience=demo-app
       - ConnectionStrings__AuthDb=Host=postgres;Database=auth_db;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
-      - Otlp__Endpoint=http://jaeger:4317  # Docker 內部指向 jaeger 容器
+      - Otlp__Endpoint=http://jaeger:4317
     depends_on:
       postgres:
-        condition: service_healthy   # 等 postgres 真正 ready 才啟動
+        condition: service_healthy
 
   # ── DataService ───────────────────────────────────────────
   data-service:
@@ -40,12 +38,12 @@ services:
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=demo_db;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
       - RabbitMq__Host=rabbitmq
-      - Otlp__Endpoint=http://jaeger:4317  # Docker 內部指向 jaeger 容器
+      - Otlp__Endpoint=http://jaeger:4317
     depends_on:
       postgres:
-        condition: service_healthy   # 等 postgres 真正 ready 才啟動
+        condition: service_healthy
       rabbitmq:
-        condition: service_started   # rabbitmq 沒有 healthcheck，用 started 就好
+        condition: service_started
 
   # ── RealTime（SignalR）────────────────────────────────────
   realtime-service:
@@ -65,7 +63,7 @@ services:
       - Otlp__Endpoint=http://jaeger:4317
     depends_on:
       postgres:
-        condition: service_healthy   # 等 postgres 真正 ready 才啟動
+        condition: service_healthy
 
   # ── Worker（RabbitMQ Consumer）────────────────────────────
   worker:
@@ -80,33 +78,24 @@ services:
     build:
       context: .
       dockerfile: Demo.TcpService/Dockerfile
-    ports:
-      - "5400:5400"      # TCP Raw，需要對外開放
 
   # ── Prometheus（指標收集）─────────────────────────────────
   prometheus:
     image: prom/prometheus:latest
-    ports:
-      - "9090:9090"      # Prometheus UI（瀏覽器查詢）
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml   # 掛入設定檔
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
 
   # ── Grafana（指標視覺化儀表板）────────────────────────────
   grafana:
     image: grafana/grafana:latest
-    ports:
-      - "3000:3000"      # Grafana UI（預設帳密：admin / admin）
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
     depends_on:
       - prometheus
 
   # ── Jaeger（分散式追蹤可視化）────────────────────────────
   jaeger:
     image: jaegertracing/all-in-one:latest
-    ports:
-      - "16686:16686"   # Jaeger UI（瀏覽器開啟）
-      - "4317:4317"     # OTLP gRPC（.NET 服務送追蹤資料到這裡）
 
   # ── PostgreSQL ────────────────────────────────────────────
   postgres:
@@ -115,18 +104,16 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
-      - postgres-data:/var/lib/postgresql/data   # 資料持久化
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]   # postgres 內建指令，確認 DB 真正 ready
-      interval: 5s    # 每 5 秒檢查一次
-      timeout: 5s     # 超過 5 秒沒回應算失敗
-      retries: 5      # 連續失敗 5 次才標記為 unhealthy
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   # ── RabbitMQ ─────────────────────────────────────────────
   rabbitmq:
     image: rabbitmq:3-management
-    ports:
-      - "15672:15672"    # 管理介面（開發用）
 
 volumes:
-  postgres-data:         # 宣告 Named Volume，讓 DB 資料在 Container 重啟後保留
+  postgres-data:

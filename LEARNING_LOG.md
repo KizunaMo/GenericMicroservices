@@ -295,5 +295,31 @@
 - Worker 用 `AddSerilog`，WebApp 用 `UseSerilog`（API 不同）
 - `{}` 佔位符是結構化的關鍵，字串串接無法做到
 
+### Phase 6-B 補充：Docker Compose 多環境（Override 機制）
+- `docker-compose.yml` 精簡為基底（共用設定：build、volumes、healthcheck、environment）
+- `docker-compose.override.yml`：開發用，對外開放 Port、ASPNETCORE_ENVIRONMENT=Development（自動載入）
+- `docker-compose.prod.yml`：正式用，收起非必要 Port、加 restart policy（`-f` 手動指定）
+- `docker-compose.staging.yml`：Staging 用，介於開發和正式之間，開放監控 Port 讓 QA 測試
+- `Makefile`：Mac / Linux 執行捷徑（`make dev`、`make prod`、`make staging`...）
+- `compose.ps1`：Windows 執行捷徑（`.\compose.ps1 dev`，對應 Makefile 所有指令）
+- 建立 Notes/Phase6B-2-DockerCompose-MultiEnv.md（含 ASCII 流程圖）
+- 建立 Notes/Docker-Localhost-Issue.md（localhost vs 127.0.0.1 完整說明）
+
+#### 學到的概念（Compose Multi-Env）
+- Override 機制：`docker compose up` 自動合併 override.yml，後者覆蓋前者同名設定
+- ports 合併是追加（不覆蓋），environment 是追加＋同名覆蓋
+- `docker compose config`：印出合併後的最終設定，debug 必備
+- 正式環境不對外開放 DB port，開發才開放（安全原則）
+- `-d` 背景執行是正式環境標配，開發不加方便看 log
+- `override` 是保留名稱，自動載入；其他名稱（prod、staging）需手動 `-f`
+- `--profile` 控制「哪些服務跑」，override 控制「怎麼跑」，兩者解決不同問題
+
+#### 學到的概念（localhost vs 127.0.0.1）
+- `localhost` 是主機名稱，DNS 解析可能優先給 IPv6（::1），導致連線失敗
+- `127.0.0.1` 直接指定 IPv4，繞過 DNS，穩定可靠
+- 容器內的 `localhost` 是容器自己，不是 Mac 宿主機
+- 容器連其他容器用服務名稱（`auth-service:8080`）
+- 容器連 Mac 宿主機用 `host.docker.internal`（Docker Desktop 專用）
+
 ### 下一步
 - Phase 7-B：分散式追蹤（OpenTelemetry）

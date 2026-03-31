@@ -1,0 +1,56 @@
+# 開發環境覆蓋設定（docker compose up 時自動載入）
+# 用途：對外開放 Port、啟用 Debug log、掛載 prometheus 設定
+
+services:
+
+  gateway:
+    ports:
+      - "5010:8080"      # 本機 5010（macOS 5000 被 AirPlay 佔用）
+      - "5011:8081"      # HTTPS（若有設定）
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+
+  auth-service:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+
+  data-service:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+
+  realtime-service:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+
+  grpc-service:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+
+  worker:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+
+  tcp-service:
+    ports:
+      - "5400:5400"      # TCP Raw，開發時對外
+
+  prometheus:
+    ports:
+      - "9090:9090"      # Prometheus UI
+
+  grafana:
+    ports:
+      - "3000:3000"      # Grafana UI
+
+  jaeger:
+    ports:
+      - "16686:16686"    # Jaeger UI
+      - "4317:4317"      # OTLP gRPC
+
+  postgres:
+    ports:
+      - "5432:5432"      # 對外開放，方便用 pgAdmin / Rider 直連
+
+  rabbitmq:
+    ports:
+      - "15672:15672"    # 管理介面

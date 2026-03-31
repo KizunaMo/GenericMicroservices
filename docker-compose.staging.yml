@@ -1,0 +1,62 @@
+# Staging 環境覆蓋設定（接近正式，但開放部分 Port 讓 QA 測試）
+# 用法：docker compose -f docker-compose.yml -f docker-compose.staging.yml up --build -d
+
+services:
+
+  gateway:
+    ports:
+      - "8080:8080"      # 用 8080，和正式的 80 區分
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Staging
+    restart: unless-stopped
+
+  auth-service:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Staging
+    restart: unless-stopped
+
+  data-service:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Staging
+    restart: unless-stopped
+
+  realtime-service:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Staging
+    restart: unless-stopped
+
+  grpc-service:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Staging
+    restart: unless-stopped
+
+  worker:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Staging
+    restart: unless-stopped
+
+  tcp-service:
+    ports:
+      - "5400:5400"
+    restart: unless-stopped
+
+  prometheus:
+    ports:
+      - "9090:9090"      # 開放，讓 QA 可以查指標
+
+  grafana:
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  jaeger:
+    ports:
+      - "16686:16686"    # 開放，讓 QA 可以查追蹤
+    restart: unless-stopped
+
+  postgres:
+    # 不對外，和正式一樣
+    restart: unless-stopped
+
+  rabbitmq:
+    restart: unless-stopped

@@ -711,3 +711,6 @@ Phase 6-A 手動 `docker build -t demo-gateway` 建的是另一套，兩者互�
 ```bash
 docker rmi demo-gateway demo-authservice demo-dataservice ...
 ```
+
+
+> `localhost` vs `127.0.0.1` 的說明詳見 `Notes/Phase6B-2-DockerCompose-MultiEnv.md`。
