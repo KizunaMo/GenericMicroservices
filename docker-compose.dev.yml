@@ -1,12 +1,22 @@
-# 開發工具 Port 設定
-# 用途：開發時對外開放各服務 Port，讓開發者可直接存取 Swagger、SignalR 等
+# 開發 Docker 專用設定
+# 用途：
+#   1. 對外開放各服務 Port（Swagger、SignalR 等直連）
+#   2. 覆蓋 Gateway 環境為 Production，讓 YARP 載入正確的 Docker 服務名稱
 # 用法：搭配 override.yml 一起載入（Makefile make dev 已處理）
 #
 # 注意：
 #   - 此檔案不會自動載入（不是 override.yml）
-#   - 正式環境不載入此檔案 → 這些 Port 完全不對外
+#   - 正式環境不載入此檔案 → 這些設定完全不影響 prod / staging
 
 services:
+
+  # Gateway 在 Docker 中需要載入 appsettings.Production.json，
+  # 才能取得正確的 Docker 服務名稱（auth-service:8080 等）。
+  # override.yml 設的 Development 會被這裡覆蓋。
+  # Gateway 沒有 Swagger，設 Production 不影響開發體驗。
+  gateway:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
 
   # AuthService Swagger：http://localhost:5100/swagger
   auth-service:
