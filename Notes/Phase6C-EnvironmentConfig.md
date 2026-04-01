@@ -141,7 +141,7 @@ appsettings.Production.json 沒有的 Key：
          ↓
     ┌────┴────────────────────────┐
     │  Development                │  Production
-    │  (本機 launchSettings.json) │  (Docker 預設)
+    │  (本機 launchSettings.json)  │  (Docker 預設)
     └────────────┬────────────────┘
                  ↓
          載入 appsettings.json
@@ -153,7 +153,7 @@ appsettings.Production.json 沒有的 Key：
                  ↓
     ┌────┴────────────────────────┐
     │  Development only           │
-    │  載入 User Secrets          │
+    │  載入 User Secrets           │
     └─────────────────────────────┘
                  ↓
          程式開始執行
@@ -184,10 +184,35 @@ ASPNETCORE_ENVIRONMENT = "Development"（來自 launchSettings.json）
   Swagger → 開啟（IsDevelopment() = true）
 ```
 
-### Docker 啟動 DataService（Production）
+### Docker 啟動 DataService（開發，`make dev`）
 
 ```
-ASPNETCORE_ENVIRONMENT = "Production"（.NET 8 容器預設）
+ASPNETCORE_ENVIRONMENT = "Development"
+（來自 docker-compose.override.yml，make dev 會自動載入）
+
+載入 appsettings.json：
+  ConnectionStrings.DefaultConnection = "Host=localhost;..."  ← 先載入
+  RabbitMq.Host = "localhost"                                ← 先載入
+
+appsettings.Development.json：
+  DataService 目前只有 Logging，跳過其他設定
+
+載入環境變數（來自 docker-compose.yml）：
+  ConnectionStrings__DefaultConnection = "Host=postgres;..."  ← 覆蓋
+  RabbitMq__Host = "rabbitmq"                                ← 覆蓋
+
+最終結果：
+  DB → postgres（Docker 服務名稱）
+  RabbitMQ → rabbitmq（Docker 服務名稱）
+  Swagger → 開啟（IsDevelopment() = true）
+  Swagger 位址 → http://localhost:5128/swagger（port 已在 override.yml 對外開放）
+```
+
+### Docker 啟動 DataService（正式，`make prod`）
+
+```
+ASPNETCORE_ENVIRONMENT = "Production"
+（來自 docker-compose.prod.yml，override.yml 不載入）
 
 載入 appsettings.json：
   ConnectionStrings.DefaultConnection = "Host=localhost;..."  ← 先載入
@@ -204,6 +229,7 @@ appsettings.Production.json：
   DB → postgres（Docker 服務名稱）
   RabbitMQ → rabbitmq（Docker 服務名稱）
   Swagger → 關閉（IsDevelopment() = false）
+  data-service 的 port 不對外開放（prod.yml 沒有設定）
 ```
 
 ### Docker 啟動 Gateway（Production）
@@ -355,17 +381,31 @@ dotnet run
 http://localhost:5128/swagger    # 應該看到 Swagger UI
 ```
 
-### 驗證 Swagger 在 Production 關閉
+### 驗證 Swagger 在開發 Docker 環境下開啟
 
 ```bash
-docker compose up --build
+# 開發環境啟動（自動載入 override.yml → ASPNETCORE_ENVIRONMENT=Development）
+make dev
+# 或：docker compose up --build -d
 
-# 瀏覽器開啟（Docker 是 Production 環境）
-http://localhost:5128/swagger    # DataService 沒有對外 Port，無法直接連
+# 瀏覽器開啟
+http://localhost:5128/swagger    # 應該看到 DataService Swagger UI
+http://localhost:5100/swagger    # 應該看到 AuthService Swagger UI
+```
+
+### 驗證 Swagger 在正式 Docker 環境下關閉
+
+```bash
+# 正式環境啟動（只載入 docker-compose.yml + prod.yml，不載入 override.yml）
+make prod
+# 或：docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+
+# 瀏覽器開啟（data-service port 不對外，Swagger 也關閉）
+http://localhost:5128/swagger    # 無法連線（port 未開放）
 # 透過 Gateway 也不行，因為 Gateway 沒有 /swagger 路由
 ```
 
-Docker 環境下 Swagger 被關閉，就算嘗試連也會 404。
+正式環境下 Swagger 被關閉，且服務 port 不對外，就算嘗試連也會失敗。
 
 ---
 

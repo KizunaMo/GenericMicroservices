@@ -26,7 +26,7 @@ param(
 switch ($Command) {
     "dev" {
         Write-Host "[dev] 啟動開發環境..." -ForegroundColor Cyan
-        docker compose up --build
+        docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.dev.yml up --build -d
     }
     "prod" {
         Write-Host "[prod] 啟動正式環境..." -ForegroundColor Green
@@ -63,7 +63,7 @@ switch ($Command) {
     }
     "config-dev" {
         Write-Host "[config-dev] 開發環境合併設定：" -ForegroundColor Cyan
-        docker compose config
+        docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.dev.yml config
     }
     "config-prod" {
         Write-Host "[config-prod] 正式環境合併設定：" -ForegroundColor Green

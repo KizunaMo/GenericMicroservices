@@ -1,0 +1,26 @@
+# 開發工具 Port 設定
+# 用途：開發時對外開放各服務 Port，讓開發者可直接存取 Swagger、SignalR 等
+# 用法：搭配 override.yml 一起載入（Makefile make dev 已處理）
+#
+# 注意：
+#   - 此檔案不會自動載入（不是 override.yml）
+#   - 正式環境不載入此檔案 → 這些 Port 完全不對外
+
+services:
+
+  # AuthService Swagger：http://localhost:5100/swagger
+  auth-service:
+    ports:
+      - "5100:8080"
+
+  # DataService Swagger：http://localhost:5128/swagger
+  # DataService gRPC：localhost:5129
+  data-service:
+    ports:
+      - "5128:5128"      # REST + Swagger（Kestrel 固定 5128）
+      - "5129:5129"      # gRPC（Kestrel 固定 5129）
+
+  # RealTime SignalR 測試：ws://localhost:5200/hub/...
+  realtime-service:
+    ports:
+      - "5200:8080"

@@ -20,10 +20,12 @@ help:
 
 ## --- 環境啟動 ---
 
-# 開發環境：預設會自動載入 docker-compose.yml + docker-compose.override.yml
-# 加入 -d 是背景執行，terminal 不會被佔用
+# 開發環境：
+#   docker-compose.yml          → 共用基底設定
+#   docker-compose.override.yml → ASPNETCORE_ENVIRONMENT=Development（自動載入）
+#   docker-compose.dev.yml      → 開發用 Port 對外（Swagger、SignalR 等）
 dev:
-	docker compose up --build -d
+	docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.dev.yml up --build -d
 
 # 正式環境
 prod:
@@ -54,7 +56,7 @@ log:
 ## --- 設定檢查 (Debug 用) ---
 
 config-dev:
-	docker compose config
+	docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.dev.yml config
 
 config-prod:
 	docker compose -f docker-compose.yml -f docker-compose.prod.yml config

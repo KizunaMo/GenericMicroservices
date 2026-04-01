@@ -116,21 +116,26 @@ gateway:                        gateway:                    gateway:
 ### 開發模式
 
 ```
-你打指令                    Docker 自動做的事
-──────────────────────────────────────────────────────────
-                            ┌─────────────────────────┐
-docker compose up --build   │ 1. 讀 docker-compose.yml │
-                            │ 2. 讀 override.yml（自動）│
-                            │ 3. 合併兩個檔案           │
-                            │ 4. build 所有 image      │
-                            │ 5. 啟動所有容器           │
-                            └─────────────────────────┘
+你打指令                                        Docker 做的事
+──────────────────────────────────────────────────────────────────
+                                                ┌─────────────────────────────┐
+make dev                                        │ 1. 讀 docker-compose.yml     │
+（展開為 docker compose                          │    （共用基底設定）            │
+  -f docker-compose.yml                         │ 2. 讀 docker-compose         │
+  -f docker-compose.override.yml                │    .override.yml             │
+  -f docker-compose.dev.yml                     │    （ASPNETCORE_ENV=Dev）     │
+  up --build -d）                               │ 3. 讀 docker-compose.dev.yml │
+                                                │    （dev 用 port 對外）       │
+                                                │ 4. 合併三個檔案               │
+                                                │ 5. build 所有 image          │
+                                                │ 6. 啟動所有容器（背景執行）     │
+                                                └─────────────────────────────┘
 
 結果：
-- 所有 ports 對外開放（5010、5432、9090、3000...）
-- ASPNETCORE_ENVIRONMENT = Development
+- gateway 5010、各服務 port（5100、5128、5129、5200）對外開放
+- 基礎設施 ports（5432、9090、3000、16686、15672）對外開放
+- ASPNETCORE_ENVIRONMENT = Development → Swagger 開啟
 - 容器崩潰不會自動重啟
-- Terminal 持續顯示 log（前景執行）
 ```
 
 ### 正式模式
@@ -324,6 +329,10 @@ services:
                   開發(override)   Staging       正式(prod)
                   ─────────────   ───────       ──────────
 gateway           5010            8080          80
+auth-service      5100 ✓          ✗             ✗   （開發可直接存取 Swagger）
+data-service      5128 ✓          ✗             ✗   （開發可直接存取 Swagger）
+data-service gRPC 5129 ✓          ✗             ✗
+realtime-service  5200 ✓          ✗             ✗   （SignalR 開發測試）
 postgres          5432 ✓          ✗             ✗
 prometheus        9090 ✓          9090 ✓        ✗
 grafana           3000 ✓          3000 ✓        3000 ✓
