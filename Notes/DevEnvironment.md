@@ -118,7 +118,43 @@ Rider 底部會出現**各自獨立的 tab**，每個 tab 顯示各自的 log。
 
 ---
 
-## 六、已知的 Port 衝突問題
+## 六、Docker 啟動後的 Dev UI
+
+### 自動開啟（`docker compose up` 就有）
+
+| UI | URL | 說明 |
+|---|---|---|
+| Jaeger（分散式追蹤）| http://localhost:16686 | 查 trace，找服務間的呼叫鏈 |
+| Prometheus（指標收集）| http://localhost:9090 | 查原始指標數值 |
+| Grafana（指標儀表板）| http://localhost:3000 | 視覺化圖表，帳密 admin/admin |
+| RabbitMQ 管理介面 | http://localhost:15672 | 查 Queue / Exchange，帳密 guest/guest |
+
+這四個 port 定義在 `docker-compose.override.yml`，`docker compose up` 時自動合併載入。
+
+### 需額外載入 dev.yml（服務直連）
+
+| URL | 說明 |
+|---|---|
+| http://localhost:5128/swagger | DataService Swagger（REST API 測試）|
+| http://localhost:5100/auth/login | AuthService 登入端點（無 Swagger，Minimal API）|
+| ws://localhost:5200/hub/chat | RealTime ChatHub 直連 |
+| ws://localhost:5200/hub/items | RealTime ItemHub 直連（Unity 訂閱 Item 事件）|
+
+```bash
+# 一般啟動（四個 Dev UI 全開）
+docker compose up -d
+
+# 含服務直連（Swagger / SignalR 測試用）
+docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.dev.yml up -d
+```
+
+> **AuthService 沒有 Swagger**，它是 Minimal API，所有端點直接定義在 Program.cs。
+> 用 Postman 測試 `/auth/login`、`/auth/refresh` 等端點。
+> 平時走 Gateway（localhost:5010）就夠了，只有 debug 特定服務時才需要加 dev.yml。
+
+---
+
+## 七、已知的 Port 衝突問題
 
 ### macOS ControlCenter 佔用 Port 5000
 

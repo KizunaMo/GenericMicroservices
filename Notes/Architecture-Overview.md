@@ -26,10 +26,10 @@
        │ /auth/**            │ /api/**         │ /hub/**
        ▼                     ▼                 ▼
 ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────────┐
-│ Demo.AuthService │  │ Demo.DataService │  │    Demo.RealTime      │
-│ :5100            │  │ :5128 (REST)     │  │  :5200 (WebSocket)    │
+│ Demo.AuthService │  │ Demo.DataService │  │    Demo.RealTime     │
+│ :5100            │  │ :5128 (REST)     │  │  :5200 (WebSocket)   │
 │ ・登入 → 簽發JWT  │  │ :5129 (gRPC)     │  │  ・SignalR Hub        │
-│ ・bcrypt 密碼驗證 │  │ ・Items CRUD API │  │  ・即時雙向推播        │
+│ ・bcrypt 密碼驗證 │  │ ・Items CRUD API │  │  ・即時雙向推播         │
 │ ・EF Core        │  │ ・EF Core        │  └──────────────────────┘
 │ ・auth_db        │  │ ・demo_db        │
 └──────────────────┘  └────────▲─────────┘
@@ -38,7 +38,7 @@
                     ┌──────────┴──────────┐
                     │   Demo.GrpcService  │
                     │   :5300 (HTTP/2)    │
-                    │   ・高效能服務間通訊  │
+                    │   ・高效能服務間通訊   │
                     │   ・EF Core         │
                     │   ・grpc_db         │
                     └─────────────────────┘
@@ -46,11 +46,11 @@
 
 ┌──────────────────────────────────────────┐
 │             Demo.TcpService  :5400       │
-│  ・完全獨立，不經過 Gateway               │
-│  ・TCP Socket Raw，自訂封包協議           │
-│  ・Category + SubType 兩層訊息分類        │
-│  ・Watchdog 心跳超時偵測                  │
-│  對象：硬體設備 / 遊戲 Client（TCP 直連） │
+│  ・完全獨立，不經過 Gateway                 │
+│  ・TCP Socket Raw，自訂封包協議             │
+│  ・Category + SubType 兩層訊息分類         │
+│  ・Watchdog 心跳超時偵測                   │
+│  對象：硬體設備 / 遊戲 Client（TCP 直連）    │
 └──────────────────────────────────────────┘
 ```
 
@@ -197,9 +197,9 @@ TCP Raw：YARP 只能代理 HTTP 流量，無法處理 TCP
 | Phase 3-B | RabbitMQ 非同步訊息          | Demo.Contracts + Demo.Worker        | ✅   |
 | Phase 4-A | gRPC 服務間通訊              | Demo.GrpcService                    | ✅   |
 | Phase 4-B | TCP Socket Raw               | Demo.TcpService                     | ✅   |
-| Phase 5-A | JWT 身份驗證                 | Demo.Gateway                        | 🔄   |
-| Phase 5-B | HTTPS / TLS                  | 所有服務                            | ⬜   |
-| Phase 5-C | Secrets 管理                 | 所有服務                            | ⬜   |
-| Phase 5-D | Rate Limiting                | Demo.Gateway                        | ⬜   |
-| Phase 6   | Docker 容器化 + Compose      | 所有服務                            | ⬜   |
-| Phase 7   | 可觀測性（Log/Trace/Metrics）| 所有服務                            | ⬜   |
+| Phase 5-A | JWT 身份驗證                 | Demo.Gateway                        | ✅   |
+| Phase 5-B | HTTPS / TLS                  | 所有服務                            | ✅   |
+| Phase 5-C | Secrets 管理                 | 所有服務                            | ✅   |
+| Phase 5-D | Rate Limiting                | Demo.Gateway                        | ✅   |
+| Phase 6   | Docker 容器化 + Compose      | 所有服務                            | ✅   |
+| Phase 7   | 可觀測性（Log/Trace/Metrics）| 所有服務                            | ✅   |

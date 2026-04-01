@@ -43,6 +43,7 @@ builder.Services.AddMassTransit(x =>
 
 var app = builder.Build();
 
+app.UseDefaultFiles();  // / → index.html
 app.UseStaticFiles();
 app.UseHttpMetrics();   // 追蹤每個 HTTP 請求的 method、status、duration
 

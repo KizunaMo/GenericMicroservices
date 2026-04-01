@@ -7,6 +7,33 @@
 
 ---
 
+## 問題零：HTTP 404，頁面完全空白（Docker 環境）
+
+### 症狀
+
+`http://localhost:5200` 回傳 HTTP 404，curl 也沒有任何輸出。
+但在 Rider 直接跑（`dotnet run`）時沒有這個問題。
+
+### 原因：缺少 `UseDefaultFiles()`
+
+`UseStaticFiles()` 只負責提供靜態檔案，**不會自動把 `/` 對應到 `index.html`**。
+需要 `UseDefaultFiles()` 才會讓 `/` → `wwwroot/index.html`。
+
+Rider 直接跑沒遇到是因為 Kestrel 的預設行為略有不同，但 Docker 環境會嚴格按照 Middleware 設定走。
+
+### 修法
+
+```csharp
+// Demo.RealTime/Program.cs
+app.UseDefaultFiles();  // / → index.html，必須在 UseStaticFiles 之前
+app.UseStaticFiles();
+```
+
+**順序很重要**：`UseDefaultFiles()` 必須在 `UseStaticFiles()` 前面，
+它的作用是把 `/` 改寫成 `/index.html`，再交給 `UseStaticFiles()` 去找檔案。
+
+---
+
 ## 問題一：頁面顯示空白（連線失敗，TypeErrorLoad failed）
 
 ### 症狀
