@@ -1,5 +1,19 @@
 # 學習日誌
 
+## 2026-04-01
+
+### Phase 3-B 補充完成：RabbitMQ → SignalR 橋接（Unity 通知）
+- Demo.RealTime 新增 MassTransit.RabbitMQ + Demo.Contracts 相依
+- 新增 ItemHub（Unity 連接的 SignalR 端點，/hub/items）
+- 新增 ItemCreatedConsumer（訂閱 RabbitMQ ItemCreated → IHubContext<ItemHub> 推送）
+- 設計選擇方案 B（RealTime 直接訂閱 RabbitMQ），不走 Worker → HTTP 的耦合路徑
+- 更新 Dockerfile（加入 Demo.Contracts COPY 步驟）
+- 更新 docker-compose.yml（realtime-service 加入 RabbitMq__Host + depends_on rabbitmq）
+- Unity 端：連 /hub/items，監聽 "OnItemCreated" 事件即可收到即時通知
+- 筆記：Notes/Phase3B-RabbitMQ-SignalR-Bridge.md
+
+---
+
 ## 2026-03-30
 
 ### Phase 7-C 完成：指標監控（Prometheus + Grafana）

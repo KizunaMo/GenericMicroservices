@@ -52,6 +52,9 @@ services:
       dockerfile: Demo.RealTime/Dockerfile
     environment:
       - Otlp__Endpoint=http://jaeger:4317
+      - RabbitMq__Host=rabbitmq
+    depends_on:
+      - rabbitmq
 
   # ── GrpcService ───────────────────────────────────────────
   grpc-service:
